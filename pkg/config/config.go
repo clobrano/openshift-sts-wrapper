@@ -5,6 +5,9 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/logger"
+	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/util"
 )
 
 type Config struct {
@@ -19,6 +22,33 @@ type Config struct {
 	ConfirmEachStep   bool   `yaml:"confirmEachStep"`
 	InstanceType      string `yaml:"instanceType"`
 	InstallConfigPath string `yaml:"installConfigPath"`
+}
+
+func LoadConfig(cfgFile string, log *logger.Logger) *Config {
+	cfg := &Config{}
+
+	// 1. Load from environment variables
+	envCfg := LoadFromEnv()
+	cfg.Merge(envCfg)
+
+	// 2. Load from file
+	configFile := cfgFile
+	if configFile == "" {
+		configFile = "openshift-sts-installer.yaml"
+	}
+	if util.FileExists(configFile) {
+		fileCfg, err := LoadFromFile(configFile)
+		if err != nil {
+			log.Debug(fmt.Sprintf("Could not load config file: %v", err))
+		} else {
+			cfg.Merge(fileCfg)
+		}
+	}
+
+	// 4. Set defaults
+	cfg.SetDefaults()
+
+	return cfg
 }
 
 // LoadFromFile loads configuration from a YAML file

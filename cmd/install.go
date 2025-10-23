@@ -16,6 +16,8 @@ import (
 
 var (
 	releaseImage      string
+	clusterName       string
+	awsRegion         string
 	awsProfile        string
 	pullSecretPath    string
 	privateBucket     bool
@@ -36,6 +38,8 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 
 	installCmd.Flags().StringVar(&releaseImage, "release-image", "", "OpenShift release image URL")
+	installCmd.Flags().StringVar(&clusterName, "cluster-name", "", "Cluster/infrastructure name")
+	installCmd.Flags().StringVar(&awsRegion, "region", "", "AWS region")
 	installCmd.Flags().StringVar(&awsProfile, "aws-profile", "", "AWS profile name (default: default)")
 	installCmd.Flags().StringVar(&pullSecretPath, "pull-secret", "", "Path to pull secret file")
 	installCmd.Flags().BoolVar(&privateBucket, "private-bucket", false, "Use private S3 bucket with CloudFront")
@@ -56,7 +60,21 @@ func runInstall(cmd *cobra.Command, args []string) {
 	}
 
 	// Load configuration with priority: flags > file > env > prompts
-	cfg := loadConfig(log)
+	cfg := config.LoadConfig(cfgFile, log)
+	// 3. Merge flags
+	flagCfg := &config.Config{
+		ReleaseImage:      releaseImage,
+		ClusterName:       clusterName,
+		AwsRegion:         awsRegion,
+		AwsProfile:        awsProfile,
+		PullSecretPath:    pullSecretPath,
+		PrivateBucket:     privateBucket,
+		StartFromStep:     startFromStep,
+		ConfirmEachStep:   confirmEachStep,
+		InstanceType:      instanceType,
+		InstallConfigPath: installConfigPath,
+	}
+	cfg.Merge(flagCfg)
 
 	// Validate configuration
 	if err := config.ValidateConfig(cfg); err != nil {
@@ -189,46 +207,6 @@ func runInstall(cmd *cobra.Command, args []string) {
 	if summary.HasErrors() {
 		os.Exit(1)
 	}
-}
-
-func loadConfig(log *logger.Logger) *config.Config {
-	cfg := &config.Config{}
-
-	// 1. Load from environment variables
-	envCfg := config.LoadFromEnv()
-	cfg.Merge(envCfg)
-
-	// 2. Load from file
-	configFile := cfgFile
-	if configFile == "" {
-		configFile = "openshift-sts-installer.yaml"
-	}
-	if util.FileExists(configFile) {
-		fileCfg, err := config.LoadFromFile(configFile)
-		if err != nil {
-			log.Debug(fmt.Sprintf("Could not load config file: %v", err))
-		} else {
-			cfg.Merge(fileCfg)
-		}
-	}
-
-	// 3. Merge flags
-	flagCfg := &config.Config{
-		ReleaseImage:      releaseImage,
-		AwsProfile:        awsProfile,
-		PullSecretPath:    pullSecretPath,
-		PrivateBucket:     privateBucket,
-		StartFromStep:     startFromStep,
-		ConfirmEachStep:   confirmEachStep,
-		InstanceType:      instanceType,
-		InstallConfigPath: installConfigPath,
-	}
-	cfg.Merge(flagCfg)
-
-	// 4. Set defaults
-	cfg.SetDefaults()
-
-	return cfg
 }
 
 func handleMissingPullSecret(log *logger.Logger, cfg *config.Config) {
