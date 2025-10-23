@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -84,4 +85,18 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 	log.CompleteStep("Cleanup")
 	log.Info("AWS resources have been deleted.")
+
+	// Remove outputDir after successful cleanup
+	if cfg.OutputDir != "" && cfg.OutputDir != "." {
+		outputPath := filepath.Clean(cfg.OutputDir)
+		if util.FileExists(outputPath) {
+			log.Info(fmt.Sprintf("Removing output directory: %s", outputPath))
+			if err := os.RemoveAll(outputPath); err != nil {
+				log.Error(fmt.Sprintf("Failed to remove output directory %s: %v", outputPath, err))
+				log.Info("You may need to manually remove the output directory.")
+			} else {
+				log.Info("Output directory removed successfully.")
+			}
+		}
+	}
 }
