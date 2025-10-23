@@ -15,13 +15,14 @@ import (
 )
 
 var (
-	releaseImage    string
-	awsProfile      string
-	pullSecretPath  string
-	privateBucket   bool
-	startFromStep   int
-	confirmEachStep bool
-	instanceType    string
+	releaseImage      string
+	awsProfile        string
+	pullSecretPath    string
+	privateBucket     bool
+	startFromStep     int
+	confirmEachStep   bool
+	instanceType      string
+	installConfigPath string
 )
 
 var installCmd = &cobra.Command{
@@ -41,6 +42,7 @@ func init() {
 	installCmd.Flags().IntVar(&startFromStep, "start-from-step", 0, "Start from specific step number")
 	installCmd.Flags().BoolVar(&confirmEachStep, "confirm-each-step", false, "Prompt for confirmation before executing each step")
 	installCmd.Flags().StringVar(&instanceType, "instance-type", "m5.4xlarge", "AWS instance type for controlPlane and compute pools")
+	installCmd.Flags().StringVar(&installConfigPath, "install-config", "", "Path to existing install-config.yaml file (optional)")
 }
 
 func runInstall(cmd *cobra.Command, args []string) {
@@ -212,13 +214,14 @@ func loadConfig(log *logger.Logger) *config.Config {
 
 	// 3. Merge flags
 	flagCfg := &config.Config{
-		ReleaseImage:    releaseImage,
-		AwsProfile:      awsProfile,
-		PullSecretPath:  pullSecretPath,
-		PrivateBucket:   privateBucket,
-		StartFromStep:   startFromStep,
-		ConfirmEachStep: confirmEachStep,
-		InstanceType:    instanceType,
+		ReleaseImage:      releaseImage,
+		AwsProfile:        awsProfile,
+		PullSecretPath:    pullSecretPath,
+		PrivateBucket:     privateBucket,
+		StartFromStep:     startFromStep,
+		ConfirmEachStep:   confirmEachStep,
+		InstanceType:      instanceType,
+		InstallConfigPath: installConfigPath,
 	}
 	cfg.Merge(flagCfg)
 

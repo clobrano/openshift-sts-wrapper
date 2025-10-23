@@ -194,7 +194,41 @@ func (s *Step4CreateConfig) Execute() error {
 		return err
 	}
 
-	// Run openshift-install create install-config (interactive)
+	targetConfigPath := util.GetInstallConfigPath(s.versionArch)
+
+	// Check if an install-config file was provided
+	if s.cfg.InstallConfigPath != "" {
+		s.log.Info(fmt.Sprintf("Using provided install-config: %s", s.cfg.InstallConfigPath))
+
+		// Copy the provided install-config to the target location
+		if err := util.CopyInstallConfig(s.cfg.InstallConfigPath, targetConfigPath); err != nil {
+			return fmt.Errorf("failed to copy install-config: %w", err)
+		}
+
+		// Update the install-config with values from the tool configuration
+		sshKey := ""     // TODO: Add SSH key support to config
+		pullSecret := "" // We'll read from the pull secret file
+
+		// Read pull secret content if path is provided
+		if s.cfg.PullSecretPath != "" && util.FileExists(s.cfg.PullSecretPath) {
+			content, err := os.ReadFile(s.cfg.PullSecretPath)
+			if err != nil {
+				s.log.Debug(fmt.Sprintf("Could not read pull secret file: %v", err))
+			} else {
+				pullSecret = string(content)
+			}
+		}
+
+		// Update the install-config with configured values
+		if err := util.UpdateInstallConfig(targetConfigPath, s.cfg.ClusterName, s.cfg.AwsRegion, sshKey, pullSecret); err != nil {
+			return fmt.Errorf("failed to update install-config: %w", err)
+		}
+
+		s.log.Info("Install-config copied and updated successfully")
+		return nil
+	}
+
+	// No install-config provided, run interactive creation
 	installBin := util.GetBinaryPath(s.versionArch, "openshift-install")
 	args := []string{"create", "install-config", "--dir", versionDir}
 
