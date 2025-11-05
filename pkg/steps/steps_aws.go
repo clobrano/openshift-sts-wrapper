@@ -80,7 +80,7 @@ func (s *Step8CopyManifests) Name() string {
 
 func (s *Step8CopyManifests) Execute() error {
 	srcDir := filepath.Join(s.cfg.OutputDir, "manifests")
-	dstDir := "manifests"
+	dstDir := filepath.Join("artifacts", s.versionArch, "manifests")
 
 	if err := util.EnsureDir(dstDir); err != nil {
 		return err
@@ -108,7 +108,7 @@ func (s *Step9CopyTLS) Name() string {
 
 func (s *Step9CopyTLS) Execute() error {
 	srcDir := filepath.Join(s.cfg.OutputDir, "tls")
-	dstDir := "tls"
+	dstDir := filepath.Join("artifacts", s.versionArch, "tls")
 
 	if err := util.EnsureDir(dstDir); err != nil {
 		return err
