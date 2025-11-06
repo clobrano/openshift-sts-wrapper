@@ -197,12 +197,15 @@ func (s *Step4CreateConfig) Execute() error {
 	installBin := util.GetBinaryPath(s.versionArch, "openshift-install")
 	args := []string{"create", "install-config", "--dir", versionDir}
 
-	s.log.Info("Starting interactive install-config creation...")
-	s.log.Info("Please answer the prompts from openshift-install:")
+	// Get AWS credentials from profile and pass them as environment variables
+	envVars, err := util.GetAWSEnvVars(s.cfg.AwsProfile)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("Could not read AWS credentials: %v", err))
+		s.log.Debug("Proceeding without explicit AWS credential injection")
+		return s.executor.ExecuteInteractive(installBin, args...)
+	}
 
-	// Note: We don't pass AWS credentials here because it breaks interactive mode
-	// The user should have AWS credentials already configured via AWS CLI or environment
-	return s.executor.ExecuteInteractive(installBin, args...)
+	return s.executor.ExecuteInteractiveWithEnv(installBin, envVars, args...)
 }
 
 // Step5SetCredentialsMode appends credentialsMode: Manual to install-config.yaml
