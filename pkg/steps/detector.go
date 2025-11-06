@@ -1,6 +1,8 @@
 package steps
 
 import (
+	"path/filepath"
+
 	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/config"
 	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/util"
 )
@@ -43,20 +45,22 @@ func (d *Detector) ShouldSkipStep(stepNum int) bool {
 		return util.FileContains(util.GetInstallConfigPath(d.versionArch), "credentialsMode: Manual")
 	case 6:
 		// Step 6: Create manifests
-		return util.DirExistsWithFiles("manifests")
+		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, d.cfg.OutputDir, "manifests"))
 	case 7:
 		// Step 7: Create AWS resources
-		return util.DirExistsWithFiles("_output/manifests") &&
-			util.DirExistsWithFiles("_output/tls")
+		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, d.cfg.OutputDir, "manifests")) &&
+			util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, d.cfg.OutputDir, "tls"))
 	case 8:
 		// Step 8: Copy manifests
-		return util.DirExistsWithFiles("manifests")
+		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "manifests"))
 	case 9:
 		// Step 9: Copy TLS
-		return util.DirExistsWithFiles("tls")
+		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "tls"))
+
 	case 10:
 		// Step 10: Deploy cluster
-		return util.FileExists(".openshift_install.log")
+		// Always try to deploy the cluster, don't skip it
+		return false
 	case 11:
 		// Step 11: Verify installation
 		// Verification should always run, don't skip it
