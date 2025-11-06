@@ -38,12 +38,13 @@ func (s *Step7CreateAWSResources) Execute() error {
 		return fmt.Errorf("cluster name and AWS region are required. They should have been loaded from install-config.yaml after Step 4")
 	}
 
+	outputDir := filepath.Join("artifacts", s.versionArch, "ccoctl-output")
 	args := []string{
 		"aws", "create-all",
 		"--name", s.cfg.ClusterName,
 		"--region", s.cfg.AwsRegion,
 		"--credentials-requests-dir", credreqsPath,
-		"--output-dir", s.cfg.OutputDir,
+		"--output-dir", outputDir,
 	}
 
 	if s.cfg.PrivateBucket {
@@ -79,7 +80,7 @@ func (s *Step8CopyManifests) Name() string {
 }
 
 func (s *Step8CopyManifests) Execute() error {
-	srcDir := filepath.Join(s.cfg.OutputDir, "manifests")
+	srcDir := filepath.Join("artifacts", s.versionArch, "ccoctl-output", "manifests")
 	dstDir := filepath.Join("artifacts", s.versionArch, "manifests")
 
 	if err := util.EnsureDir(dstDir); err != nil {
@@ -107,14 +108,26 @@ func (s *Step9CopyTLS) Name() string {
 }
 
 func (s *Step9CopyTLS) Execute() error {
-	srcDir := filepath.Join(s.cfg.OutputDir, "tls")
+	ccoctlOutputDir := filepath.Join("artifacts", s.versionArch, "ccoctl-output")
+	srcDir := filepath.Join(ccoctlOutputDir, "tls")
 	dstDir := filepath.Join("artifacts", s.versionArch, "tls")
 
 	if err := util.EnsureDir(dstDir); err != nil {
 		return err
 	}
 
-	return copyDir(srcDir, dstDir)
+	if err := copyDir(srcDir, dstDir); err != nil {
+		return err
+	}
+
+	// Clean up ccoctl-output directory after successful copy
+	s.log.Debug(fmt.Sprintf("Removing ccoctl-output directory: %s", ccoctlOutputDir))
+	if err := os.RemoveAll(ccoctlOutputDir); err != nil {
+		s.log.Debug(fmt.Sprintf("Failed to remove ccoctl-output directory: %v", err))
+		// Don't fail the step if cleanup fails
+	}
+
+	return nil
 }
 
 // Step10DeployCluster runs openshift-install create cluster

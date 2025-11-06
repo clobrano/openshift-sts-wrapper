@@ -8,14 +8,12 @@ import (
 )
 
 type Config struct {
-	ReleaseImage   string `yaml:"releaseImage"`
-	ClusterName    string `yaml:"clusterName"`
-	AwsRegion      string `yaml:"awsRegion"`
-	AwsProfile     string `yaml:"awsProfile"`
-	PullSecretPath string `yaml:"pullSecretPath"`
-	PrivateBucket  bool   `yaml:"privateBucket"`
-	// TODO: no need to make this customizable as it is created under artifacts/<version>/ anyway
-	OutputDir       string `yaml:"outputDir"`
+	ReleaseImage    string `yaml:"releaseImage"`
+	ClusterName     string `yaml:"clusterName"`
+	AwsRegion       string `yaml:"awsRegion"`
+	AwsProfile      string `yaml:"awsProfile"`
+	PullSecretPath  string `yaml:"pullSecretPath"`
+	PrivateBucket   bool   `yaml:"privateBucket"`
 	StartFromStep   int    `yaml:"startFromStep"`
 	ConfirmEachStep bool   `yaml:"confirmEachStep"`
 	InstanceType    string `yaml:"instanceType"`
@@ -45,7 +43,6 @@ func LoadFromEnv() *Config {
 		AwsProfile:      os.Getenv("OPENSHIFT_STS_AWS_PROFILE"),
 		PullSecretPath:  os.Getenv("OPENSHIFT_STS_PULL_SECRET_PATH"),
 		PrivateBucket:   os.Getenv("OPENSHIFT_STS_PRIVATE_BUCKET") == "true",
-		OutputDir:       os.Getenv("OPENSHIFT_STS_OUTPUT_DIR"),
 		ConfirmEachStep: os.Getenv("OPENSHIFT_STS_CONFIRM_EACH_STEP") == "true",
 		InstanceType:    os.Getenv("OPENSHIFT_STS_INSTANCE_TYPE"),
 	}
@@ -71,9 +68,6 @@ func (c *Config) Merge(other *Config) {
 	if other.PrivateBucket {
 		c.PrivateBucket = other.PrivateBucket
 	}
-	if other.OutputDir != "" {
-		c.OutputDir = other.OutputDir
-	}
 	if other.StartFromStep > 0 {
 		c.StartFromStep = other.StartFromStep
 	}
@@ -96,9 +90,6 @@ func ValidateConfig(cfg *Config) error {
 
 // SetDefaults sets default values for optional fields
 func (c *Config) SetDefaults() {
-	if c.OutputDir == "" {
-		c.OutputDir = "_output"
-	}
 	if c.PullSecretPath == "" {
 		c.PullSecretPath = "pull-secret.json"
 	}

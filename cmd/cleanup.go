@@ -76,6 +76,7 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 	executor := &util.RealExecutor{}
 
+	// TODO: It might have more sense to extract the data from the artifacts/<version> path than from the release image
 	// Step 1: Run openshift-install destroy if we have the version directory
 	if cleanupReleaseImage != "" {
 		versionArch, err := util.ExtractVersionArch(cleanupReleaseImage)

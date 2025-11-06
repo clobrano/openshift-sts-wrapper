@@ -45,18 +45,17 @@ func (d *Detector) ShouldSkipStep(stepNum int) bool {
 		return util.FileContains(util.GetInstallConfigPath(d.versionArch), "credentialsMode: Manual")
 	case 6:
 		// Step 6: Create manifests
-		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, d.cfg.OutputDir, "manifests"))
+		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "manifests"))
 	case 7:
 		// Step 7: Create AWS resources
-		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, d.cfg.OutputDir, "manifests")) &&
-			util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, d.cfg.OutputDir, "tls"))
+		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "manifests")) &&
+			util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "tls"))
 	case 8:
 		// Step 8: Copy manifests
-		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "manifests"))
+		return !util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "manifests"))
 	case 9:
 		// Step 9: Copy TLS
-		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "tls"))
-
+		return !util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "tls"))
 	case 10:
 		// Step 10: Deploy cluster
 		// Always try to deploy the cluster, don't skip it

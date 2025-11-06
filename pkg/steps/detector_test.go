@@ -76,29 +76,41 @@ func TestShouldSkipStep(t *testing.T) {
 		t.Error("Step 5 should be skipped when manifests exist")
 	}
 
-	// Create _output directories (step 6)
-	os.MkdirAll("_output/manifests", 0755)
-	os.MkdirAll("_output/tls", 0755)
-	os.WriteFile("_output/manifests/test.yaml", []byte("test"), 0644)
-	os.WriteFile("_output/tls/test.pem", []byte("test"), 0644)
+	// Create ccoctl-output directories (step 6 and 7)
+	ccoctlOutputPath := filepath.Join("artifacts", versionArch, "ccoctl-output")
+	os.MkdirAll(filepath.Join(ccoctlOutputPath, "manifests"), 0755)
+	os.MkdirAll(filepath.Join(ccoctlOutputPath, "tls"), 0755)
+	os.WriteFile(filepath.Join(ccoctlOutputPath, "manifests", "test.yaml"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(ccoctlOutputPath, "tls", "test.pem"), []byte("test"), 0644)
 
 	detector = NewDetector(cfg)
 	if !detector.ShouldSkipStep(6) {
-		t.Error("Step 6 should be skipped when _output exists")
+		t.Error("Step 6 should be skipped when ccoctl-output/manifests exists")
 	}
 
-	// Step 7 (copy manifests) should be skipped when manifests exist
+	// Step 7 should be skipped when both manifests and tls exist in ccoctl-output
 	if !detector.ShouldSkipStep(7) {
-		t.Error("Step 7 should be skipped when manifests exist")
+		t.Error("Step 7 should be skipped when ccoctl-output has manifests and tls")
 	}
 
-	// Create tls directory (step 8)
-	os.MkdirAll("tls", 0755)
-	os.WriteFile("tls/ca.pem", []byte("test"), 0644)
+	// Create copied manifests directory (step 8)
+	copiedManifestsPath := filepath.Join("artifacts", versionArch, "manifests")
+	os.MkdirAll(copiedManifestsPath, 0755)
+	os.WriteFile(filepath.Join(copiedManifestsPath, "test.yaml"), []byte("test"), 0644)
 
 	detector = NewDetector(cfg)
 	if !detector.ShouldSkipStep(8) {
-		t.Error("Step 8 should be skipped when tls exists")
+		t.Error("Step 8 should be skipped when artifacts/*/manifests exists")
+	}
+
+	// Create copied tls directory (step 9)
+	copiedTlsPath := filepath.Join("artifacts", versionArch, "tls")
+	os.MkdirAll(copiedTlsPath, 0755)
+	os.WriteFile(filepath.Join(copiedTlsPath, "ca.pem"), []byte("test"), 0644)
+
+	detector = NewDetector(cfg)
+	if !detector.ShouldSkipStep(9) {
+		t.Error("Step 9 should be skipped when artifacts/*/tls exists")
 	}
 
 	// Create .openshift_install.log (step 9)

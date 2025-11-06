@@ -9,7 +9,7 @@ import (
 	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/util"
 )
 
-func TestStep6CreateAWSResources(t *testing.T) {
+func TestStep7CreateAWSResources(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
@@ -19,7 +19,6 @@ func TestStep6CreateAWSResources(t *testing.T) {
 		ReleaseImage: "quay.io/test:4.12.0-x86_64",
 		ClusterName:  "test-cluster",
 		AwsRegion:    "us-east-2",
-		OutputDir:    "_output",
 	}
 	log := logger.New(logger.LevelQuiet, nil)
 	executor := util.NewMockExecutor()
@@ -28,7 +27,7 @@ func TestStep6CreateAWSResources(t *testing.T) {
 	os.MkdirAll("artifacts/4.12.0-x86_64/bin", 0755)
 	os.MkdirAll("artifacts/4.12.0-x86_64/credreqs", 0755)
 
-	step, err := NewStep6(cfg, log, executor)
+	step, err := NewStep7(cfg, log, executor)
 	if err != nil {
 		t.Fatalf("Failed to create step: %v", err)
 	}
@@ -49,7 +48,7 @@ func TestStep6CreateAWSResources(t *testing.T) {
 	}
 }
 
-func TestStep6WithPrivateBucket(t *testing.T) {
+func TestStep7WithPrivateBucket(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
@@ -59,7 +58,6 @@ func TestStep6WithPrivateBucket(t *testing.T) {
 		ReleaseImage:  "quay.io/test:4.12.0-x86_64",
 		ClusterName:   "test-cluster",
 		AwsRegion:     "us-east-2",
-		OutputDir:     "_output",
 		PrivateBucket: true,
 	}
 	log := logger.New(logger.LevelQuiet, nil)
@@ -68,7 +66,7 @@ func TestStep6WithPrivateBucket(t *testing.T) {
 	os.MkdirAll("artifacts/4.12.0-x86_64/bin", 0755)
 	os.MkdirAll("artifacts/4.12.0-x86_64/credreqs", 0755)
 
-	step, err := NewStep6(cfg, log, executor)
+	step, err := NewStep7(cfg, log, executor)
 	if err != nil {
 		t.Fatalf("Failed to create step: %v", err)
 	}
@@ -83,7 +81,7 @@ func TestStep6WithPrivateBucket(t *testing.T) {
 	}
 }
 
-func TestStep7CopyManifests(t *testing.T) {
+func TestStep8CopyManifests(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
@@ -91,47 +89,13 @@ func TestStep7CopyManifests(t *testing.T) {
 
 	cfg := &config.Config{
 		ReleaseImage: "quay.io/test:4.12.0-x86_64",
-		OutputDir:    "_output",
 	}
 	log := logger.New(logger.LevelQuiet, nil)
 	executor := util.NewMockExecutor()
 
 	// Create source directory with files
-	os.MkdirAll("_output/manifests", 0755)
-	os.WriteFile("_output/manifests/test.yaml", []byte("test content"), 0644)
-
-	step, err := NewStep7(cfg, log, executor)
-	if err != nil {
-		t.Fatalf("Failed to create step: %v", err)
-	}
-
-	err = step.Execute()
-	if err != nil {
-		t.Fatalf("Step execution failed: %v", err)
-	}
-
-	// Verify files were copied
-	if !util.FileExists("manifests/test.yaml") {
-		t.Error("Manifest file was not copied")
-	}
-}
-
-func TestStep8CopyTLS(t *testing.T) {
-	tmpDir := t.TempDir()
-	originalWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(originalWd)
-
-	cfg := &config.Config{
-		ReleaseImage: "quay.io/test:4.12.0-x86_64",
-		OutputDir:    "_output",
-	}
-	log := logger.New(logger.LevelQuiet, nil)
-	executor := util.NewMockExecutor()
-
-	// Create source directory with files
-	os.MkdirAll("_output/tls", 0755)
-	os.WriteFile("_output/tls/ca.pem", []byte("cert content"), 0644)
+	os.MkdirAll("artifacts/4.12.0-x86_64/ccoctl-output/manifests", 0755)
+	os.WriteFile("artifacts/4.12.0-x86_64/ccoctl-output/manifests/test.yaml", []byte("test content"), 0644)
 
 	step, err := NewStep8(cfg, log, executor)
 	if err != nil {
@@ -144,12 +108,44 @@ func TestStep8CopyTLS(t *testing.T) {
 	}
 
 	// Verify files were copied
-	if !util.FileExists("tls/ca.pem") {
+	if !util.FileExists("artifacts/4.12.0-x86_64/manifests/test.yaml") {
+		t.Error("Manifest file was not copied")
+	}
+}
+
+func TestStep9CopyTLS(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalWd, _ := os.Getwd()
+	os.Chdir(tmpDir)
+	defer os.Chdir(originalWd)
+
+	cfg := &config.Config{
+		ReleaseImage: "quay.io/test:4.12.0-x86_64",
+	}
+	log := logger.New(logger.LevelQuiet, nil)
+	executor := util.NewMockExecutor()
+
+	// Create source directory with files
+	os.MkdirAll("artifacts/4.12.0-x86_64/ccoctl-output/tls", 0755)
+	os.WriteFile("artifacts/4.12.0-x86_64/ccoctl-output/tls/ca.pem", []byte("cert content"), 0644)
+
+	step, err := NewStep9(cfg, log, executor)
+	if err != nil {
+		t.Fatalf("Failed to create step: %v", err)
+	}
+
+	err = step.Execute()
+	if err != nil {
+		t.Fatalf("Step execution failed: %v", err)
+	}
+
+	// Verify files were copied
+	if !util.FileExists("artifacts/4.12.0-x86_64/tls/ca.pem") {
 		t.Error("TLS file was not copied")
 	}
 }
 
-func TestStep9DeployCluster(t *testing.T) {
+func TestStep10DeployCluster(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
@@ -163,7 +159,7 @@ func TestStep9DeployCluster(t *testing.T) {
 
 	os.MkdirAll("artifacts/4.12.0-x86_64/bin", 0755)
 
-	step, err := NewStep9(cfg, log, executor)
+	step, err := NewStep10(cfg, log, executor)
 	if err != nil {
 		t.Fatalf("Failed to create step: %v", err)
 	}
@@ -181,7 +177,7 @@ func TestStep9DeployCluster(t *testing.T) {
 	}
 }
 
-func TestStep10Verify(t *testing.T) {
+func TestStep11Verify(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalWd, _ := os.Getwd()
 	os.Chdir(tmpDir)
@@ -199,7 +195,7 @@ func TestStep10Verify(t *testing.T) {
 	executor.SetOutput("oc get secrets -n openshift-image-registry installer-cloud-credentials -o json",
 		`{"data":{"credentials":"role_arn = arn:aws:iam::123456789:role/test\nweb_identity_token_file = /var/run/secrets/token"}}`)
 
-	step, err := NewStep10(cfg, log, executor)
+	step, err := NewStep11(cfg, log, executor)
 	if err != nil {
 		t.Fatalf("Failed to create step: %v", err)
 	}
