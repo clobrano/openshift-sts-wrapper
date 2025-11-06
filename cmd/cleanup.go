@@ -93,13 +93,26 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 				destroyArgs := []string{"destroy", "cluster", "--dir", versionDir, "--log-level=debug"}
 
-				// TODO: we should pass AWS credentials to ExecuteInteractive
-				if err := executor.ExecuteInteractive(installBin, destroyArgs...); err != nil {
-					log.FailStep("Destroy infrastructure")
-					log.Error(fmt.Sprintf("Failed to destroy infrastructure: %v", err))
-					log.Info("Continuing with ccoctl cleanup...")
+				// Get AWS credentials from profile and pass them as environment variables
+				awsEnv, err := util.GetAWSEnvVars(cfg.AwsProfile)
+				if err != nil {
+					log.Debug(fmt.Sprintf("Could not read AWS credentials: %v", err))
+					log.Debug("Proceeding without explicit AWS credential injection")
+					if err := executor.ExecuteInteractive(installBin, destroyArgs...); err != nil {
+						log.FailStep("Destroy infrastructure")
+						log.Error(fmt.Sprintf("Failed to destroy infrastructure: %v", err))
+						log.Info("Continuing with ccoctl cleanup...")
+					} else {
+						log.CompleteStep("Destroy infrastructure")
+					}
 				} else {
-					log.CompleteStep("Destroy infrastructure")
+					if err := executor.ExecuteInteractiveWithEnv(installBin, awsEnv, destroyArgs...); err != nil {
+						log.FailStep("Destroy infrastructure")
+						log.Error(fmt.Sprintf("Failed to destroy infrastructure: %v", err))
+						log.Info("Continuing with ccoctl cleanup...")
+					} else {
+						log.CompleteStep("Destroy infrastructure")
+					}
 				}
 			} else {
 				log.Info(fmt.Sprintf("No state file found at %s, skipping openshift-install destroy", stateFile))
