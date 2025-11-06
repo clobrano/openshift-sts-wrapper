@@ -193,6 +193,7 @@ func (s *Step4CreateConfig) Execute() error {
 	}
 
 	// Run openshift-install create install-config (interactive)
+	// TODO: if this step is run interactively, save user selections (from the created install-config.yaml) inside the openshift-sts-installer.yaml, for being able to skip this step in the future. Make this new step visible to the user
 	installBin := util.GetBinaryPath(s.versionArch, "openshift-install")
 	args := []string{"create", "install-config", "--dir", versionDir}
 

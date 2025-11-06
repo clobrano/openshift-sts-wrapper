@@ -148,6 +148,7 @@ func (s *Step10DeployCluster) Execute() error {
 		return s.executor.ExecuteInteractive(installBin, args...)
 	}
 
+	// TODO: do not print the output stream in real-time anymore. Show a clear message to where finding the logs (suggest use `tail -f` maybe), but show a dynamic symbol to show that the process is running
 	// Use interactive execution with env vars to stream output in real-time
 	return s.executor.ExecuteInteractiveWithEnv(installBin, awsEnv, args...)
 }

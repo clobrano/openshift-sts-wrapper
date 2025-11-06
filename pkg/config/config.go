@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	ReleaseImage    string `yaml:"releaseImage"`
-	ClusterName     string `yaml:"clusterName"`
-	AwsRegion       string `yaml:"awsRegion"`
-	AwsProfile      string `yaml:"awsProfile"`
-	PullSecretPath  string `yaml:"pullSecretPath"`
-	PrivateBucket   bool   `yaml:"privateBucket"`
+	ReleaseImage   string `yaml:"releaseImage"`
+	ClusterName    string `yaml:"clusterName"`
+	AwsRegion      string `yaml:"awsRegion"`
+	AwsProfile     string `yaml:"awsProfile"`
+	PullSecretPath string `yaml:"pullSecretPath"`
+	PrivateBucket  bool   `yaml:"privateBucket"`
+	// TODO: no need to make this customizable as it is created under artifacts/<version>/ anyway
 	OutputDir       string `yaml:"outputDir"`
 	StartFromStep   int    `yaml:"startFromStep"`
 	ConfirmEachStep bool   `yaml:"confirmEachStep"`

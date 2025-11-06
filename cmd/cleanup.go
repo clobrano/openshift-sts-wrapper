@@ -92,6 +92,7 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 				destroyArgs := []string{"destroy", "cluster", "--dir", versionDir, "--log-level=debug"}
 
+				// TODO: we should pass AWS credentials to ExecuteInteractive
 				if err := executor.ExecuteInteractive(installBin, destroyArgs...); err != nil {
 					log.FailStep("Destroy infrastructure")
 					log.Error(fmt.Sprintf("Failed to destroy infrastructure: %v", err))

@@ -88,6 +88,7 @@ func ReadAWSCredentials(profile string) (*AWSCredentials, error) {
 
 // GetAWSEnvVars returns environment variables for AWS credentials
 func GetAWSEnvVars(profile string) ([]string, error) {
+	// TODO: intergrate it with LoadFromEnv. The source of AWS credentials must be transparent to the users, they shall be able to set env variables or rely on aws-credential file created by aws-saml.py as they like
 	creds, err := ReadAWSCredentials(profile)
 	if err != nil {
 		return nil, err
