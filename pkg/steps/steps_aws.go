@@ -184,8 +184,16 @@ func (s *Step11Verify) Name() string {
 }
 
 func (s *Step11Verify) Execute() error {
+	// Set KUBECONFIG environment variable to point to the kubeconfig file
+	kubeconfigPath := filepath.Join("artifacts", s.versionArch, "auth", "kubeconfig")
+	if !util.FileExists(kubeconfigPath) {
+		return fmt.Errorf("kubeconfig not found at %s - cluster may not have been deployed successfully", kubeconfigPath)
+	}
+
+	envVars := []string{fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath)}
+
 	// Check 1: Root credentials should not exist
-	_, err := s.executor.Execute("oc", "get", "secrets", "-n", "kube-system", "aws-creds")
+	_, err := s.executor.ExecuteWithEnv("oc", envVars, "get", "secrets", "-n", "kube-system", "aws-creds")
 	if err == nil {
 		s.log.Error("WARNING: Root credentials secret exists (expected it to not exist)")
 	} else {
@@ -193,7 +201,7 @@ func (s *Step11Verify) Execute() error {
 	}
 
 	// Check 2: Components should use IAM roles
-	output, err := s.executor.Execute("oc", "get", "secrets", "-n", "openshift-image-registry",
+	output, err := s.executor.ExecuteWithEnv("oc", envVars, "get", "secrets", "-n", "openshift-image-registry",
 		"installer-cloud-credentials", "-o", "json")
 	if err != nil {
 		return fmt.Errorf("failed to check IAM role usage: %w", err)
