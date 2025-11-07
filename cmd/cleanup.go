@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ var (
 	cleanupClusterName  string
 	cleanupAwsRegion    string
 	cleanupReleaseImage string
+	cleanupFromArtifacts string
 )
 
 var cleanupCmd = &cobra.Command{
@@ -28,15 +30,50 @@ var cleanupCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(cleanupCmd)
 
-	cleanupCmd.Flags().StringVar(&cleanupClusterName, "cluster-name", "", "Cluster/infrastructure name")
-	cleanupCmd.Flags().StringVar(&cleanupAwsRegion, "region", "", "AWS region")
-	cleanupCmd.Flags().StringVar(&cleanupReleaseImage, "release-image", "", "OpenShift release image (to find correct version directory)")
-	cleanupCmd.MarkFlagRequired("cluster-name")
-	cleanupCmd.MarkFlagRequired("region")
+	cleanupCmd.Flags().StringVar(&cleanupClusterName, "cluster-name", "", "Cluster/infrastructure name (not needed if --from-artifacts is provided)")
+	cleanupCmd.Flags().StringVar(&cleanupAwsRegion, "region", "", "AWS region (not needed if --from-artifacts is provided)")
+	cleanupCmd.Flags().StringVar(&cleanupReleaseImage, "release-image", "", "OpenShift release image (not needed if --from-artifacts is provided)")
+	cleanupCmd.Flags().StringVar(&cleanupFromArtifacts, "from-artifacts", "", "Path to artifacts directory (e.g., artifacts/4.12.0-x86_64)")
 }
 
 func runCleanup(cmd *cobra.Command, args []string) {
 	log := logger.New(logger.Level(getLogLevel()), nil)
+
+	var versionDir string
+
+	// If --from-artifacts is provided, derive everything from the artifacts directory
+	if cleanupFromArtifacts != "" {
+		log.Info(fmt.Sprintf("Reading cluster information from %s", cleanupFromArtifacts))
+
+		// Read metadata.json to get cluster name and region
+		metadata, err := util.ReadClusterMetadata(cleanupFromArtifacts)
+		if err != nil {
+			log.Error(fmt.Sprintf("Failed to read cluster metadata: %v", err))
+			log.Error("Could not find cluster name and region values in metadata.json")
+			log.Error("Please provide the values using --cluster-name and --region flags")
+			log.Info("")
+			log.Info("Example:")
+			log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
+			os.Exit(1)
+		}
+
+		cleanupClusterName = metadata.ClusterName
+		cleanupAwsRegion = metadata.AWS.Region
+		versionDir = cleanupFromArtifacts
+
+		log.Info(fmt.Sprintf("Cluster Name: %s", cleanupClusterName))
+		log.Info(fmt.Sprintf("AWS Region: %s", cleanupAwsRegion))
+	} else {
+		// Validate required flags if --from-artifacts is not provided
+		if cleanupClusterName == "" || cleanupAwsRegion == "" {
+			log.Error("Either --from-artifacts must be provided, or both --cluster-name and --region are required")
+			log.Info("")
+			log.Info("Examples:")
+			log.Info("  openshift-sts-installer cleanup --from-artifacts=artifacts/4.12.0-x86_64")
+			log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
+			os.Exit(1)
+		}
+	}
 
 	// Load config to get AWS profile
 	cfg := &config.Config{}
@@ -76,15 +113,23 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 	executor := &util.RealExecutor{}
 
-	// TODO: It might have more sense to extract the data from the artifacts/<version> path than from the release image
 	// Step 1: Run openshift-install destroy if we have the version directory
-	if cleanupReleaseImage != "" {
-		versionArch, err := util.ExtractVersionArch(cleanupReleaseImage)
-		if err != nil {
-			log.Error(fmt.Sprintf("Failed to extract version from release image: %v", err))
-		} else {
-			versionDir := fmt.Sprintf("artifacts/%s", versionArch)
+	if versionDir != "" || cleanupReleaseImage != "" {
+		// If versionDir is already set from --from-artifacts, use it
+		// Otherwise, derive it from --release-image
+		if versionDir == "" {
+			versionArch, err := util.ExtractVersionArch(cleanupReleaseImage)
+			if err != nil {
+				log.Error(fmt.Sprintf("Failed to extract version from release image: %v", err))
+			} else {
+				versionDir = fmt.Sprintf("artifacts/%s", versionArch)
+			}
+		}
+
+		if versionDir != "" {
 			stateFile := fmt.Sprintf("%s/.openshift_install_state.json", versionDir)
+			// Extract version-arch from versionDir path for GetBinaryPath
+			versionArch := filepath.Base(versionDir)
 			installBin := util.GetBinaryPath(versionArch, "openshift-install")
 
 			// Check if state file exists
@@ -119,7 +164,7 @@ func runCleanup(cmd *cobra.Command, args []string) {
 			}
 		}
 	} else {
-		log.Info("No --release-image provided, skipping openshift-install destroy")
+		log.Info("No --from-artifacts or --release-image provided, skipping openshift-install destroy")
 		log.Info("If you have orphaned infrastructure, run: ./artifacts/<version>/bin/openshift-install destroy cluster --dir artifacts/<version>/")
 	}
 

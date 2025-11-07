@@ -1,8 +1,10 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -164,4 +166,35 @@ func GenerateInstallConfig(path string, clusterName, baseDomain, awsRegion, sshK
 	}
 
 	return nil
+}
+
+// ClusterMetadata represents the metadata.json structure from artifacts directory
+type ClusterMetadata struct {
+	ClusterName string `json:"clusterName"`
+	ClusterID   string `json:"clusterID"`
+	InfraID     string `json:"infraID"`
+	AWS         struct {
+		Region string `json:"region"`
+	} `json:"aws"`
+}
+
+// ReadClusterMetadata reads cluster information from metadata.json in artifacts directory
+func ReadClusterMetadata(artifactsDir string) (*ClusterMetadata, error) {
+	metadataPath := filepath.Join(artifactsDir, "metadata.json")
+
+	if !FileExists(metadataPath) {
+		return nil, fmt.Errorf("metadata.json not found at %s", metadataPath)
+	}
+
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read metadata.json: %w", err)
+	}
+
+	var metadata ClusterMetadata
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to parse metadata.json: %w", err)
+	}
+
+	return &metadata, nil
 }
