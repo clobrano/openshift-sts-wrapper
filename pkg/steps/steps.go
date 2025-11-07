@@ -404,7 +404,15 @@ func (s *Step6CreateManifests) Execute() error {
 	installBin := util.GetBinaryPath(s.versionArch, "openshift-install")
 	args := []string{"create", "manifests", "--dir", versionDir}
 
-	return util.RunCommand(s.executor, installBin, args...)
+	// Get AWS credentials from profile and pass them as environment variables
+	envVars, err := util.GetAWSEnvVars(s.cfg.AwsProfile)
+	if err != nil {
+		s.log.Debug(fmt.Sprintf("Could not read AWS credentials: %v", err))
+		s.log.Debug("Proceeding without explicit AWS credential injection")
+		return util.RunCommand(s.executor, installBin, args...)
+	}
+
+	return util.RunCommandWithEnv(s.executor, envVars, installBin, args...)
 }
 
 // Additional steps will follow the same pattern...
