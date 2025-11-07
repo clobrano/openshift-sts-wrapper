@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -152,7 +153,13 @@ func GenerateInstallConfig(path string, clusterName, baseDomain, awsRegion, sshK
 		return fmt.Errorf("failed to marshal install-config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	// Post-process to format SSH key with literal block scalar (|)
+	// The YAML library outputs: sshKey: <key content>
+	// We want: sshKey: |\n    <key content>
+	yamlStr := string(data)
+	yamlStr = strings.Replace(yamlStr, "sshKey: "+sshKey, "sshKey: |\n    "+sshKey, 1)
+
+	if err := os.WriteFile(path, []byte(yamlStr), 0644); err != nil {
 		return fmt.Errorf("failed to write install-config.yaml: %w", err)
 	}
 
