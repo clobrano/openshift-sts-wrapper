@@ -113,22 +113,22 @@ func TestValidateConfig(t *testing.T) {
 			shouldError: true,
 		},
 		{
-			name: "missing cluster name",
+			name: "missing cluster name is ok",
 			config: Config{
 				ReleaseImage:   "quay.io/test:4.12.0-x86_64",
 				AwsRegion:      "us-east-1",
 				PullSecretPath: "pull-secret.json",
 			},
-			shouldError: true,
+			shouldError: false,
 		},
 		{
-			name: "missing aws region",
+			name: "missing aws region is ok",
 			config: Config{
 				ReleaseImage:   "quay.io/test:4.12.0-x86_64",
 				ClusterName:    "test-cluster",
 				PullSecretPath: "pull-secret.json",
 			},
-			shouldError: true,
+			shouldError: false,
 		},
 	}
 

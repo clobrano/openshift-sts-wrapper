@@ -163,25 +163,46 @@ func runInstall(cmd *cobra.Command, args []string) {
 			log.CompleteStep(fmt.Sprintf("[Step %d] %s", stepDef.num, step.Name()))
 			summary.AddSuccess(fmt.Sprintf("[Step %d] %s", stepDef.num, step.Name()))
 
-			// After Step 4, read clusterName and awsRegion from install-config.yaml
+			// After Step 4, extract all fields from install-config.yaml and save to config file
 			// This must be done before Step 6 consumes the file
-			if stepDef.num == 4 && (cfg.ClusterName == "" || cfg.AwsRegion == "") {
+			if stepDef.num == 4 {
 				versionArch, err := util.ExtractVersionArch(cfg.ReleaseImage)
 				if err == nil {
 					installConfigPath := util.GetInstallConfigPath(versionArch)
 					if util.FileExists(installConfigPath) {
-						name, region, err := util.ExtractClusterNameAndRegion(installConfigPath)
+						extracted, err := util.ExtractAllFields(installConfigPath)
 						if err == nil {
-							if cfg.ClusterName == "" {
-								cfg.ClusterName = name
-								log.Debug(fmt.Sprintf("Read cluster name from install-config.yaml: %s", name))
+							// Update config with extracted values (pull secret is read from file, not saved)
+							cfg.ClusterName = extracted.ClusterName
+							cfg.AwsRegion = extracted.AwsRegion
+							cfg.BaseDomain = extracted.BaseDomain
+
+							log.Debug(fmt.Sprintf("Extracted cluster name: %s", extracted.ClusterName))
+							log.Debug(fmt.Sprintf("Extracted AWS region: %s", extracted.AwsRegion))
+							log.Debug(fmt.Sprintf("Extracted base domain: %s", extracted.BaseDomain))
+
+							// Find SSH key path from extracted content
+							sshKeyPath, err := util.FindSSHKeyPath(extracted.SSHKey)
+							if err != nil {
+								log.Debug(fmt.Sprintf("Could not find SSH key file in ~/.ssh: %v", err))
+								log.Debug("SSH key path will not be saved to config")
+							} else {
+								cfg.SSHKeyPath = sshKeyPath
+								log.Debug(fmt.Sprintf("Found SSH key at: %s", sshKeyPath))
 							}
-							if cfg.AwsRegion == "" {
-								cfg.AwsRegion = region
-								log.Debug(fmt.Sprintf("Read AWS region from install-config.yaml: %s", region))
+
+							// Save configuration to file for future runs
+							configPath := cfgFile
+							if configPath == "" {
+								configPath = "openshift-sts-installer.yaml"
+							}
+							if err := config.SaveToFile(configPath, cfg); err != nil {
+								log.Debug(fmt.Sprintf("Could not save config to file: %v", err))
+							} else {
+								log.Info(fmt.Sprintf("✓ Configuration saved to %s for future runs", configPath))
 							}
 						} else {
-							log.Debug(fmt.Sprintf("Could not extract cluster name/region from install-config.yaml: %v", err))
+							log.Debug(fmt.Sprintf("Could not extract fields from install-config.yaml: %v", err))
 						}
 					}
 				}

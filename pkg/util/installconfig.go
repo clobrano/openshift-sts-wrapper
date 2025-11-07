@@ -9,7 +9,10 @@ import (
 
 // InstallConfig represents the minimal structure we need from install-config.yaml
 type InstallConfig struct {
-	Metadata struct {
+	BaseDomain string `yaml:"baseDomain"`
+	SSHKey     string `yaml:"sshKey"`
+	PullSecret string `yaml:"pullSecret"`
+	Metadata   struct {
 		Name string `yaml:"name"`
 	} `yaml:"metadata"`
 	Platform struct {
@@ -50,4 +53,58 @@ func ExtractClusterNameAndRegion(installConfigPath string) (clusterName string, 
 	}
 
 	return config.Metadata.Name, config.Platform.AWS.Region, nil
+}
+
+// ExtractedConfig contains all fields extracted from install-config.yaml
+type ExtractedConfig struct {
+	ClusterName string
+	AwsRegion   string
+	BaseDomain  string
+	SSHKey      string
+	PullSecret  string
+}
+
+// ExtractAllFields reads install-config.yaml and returns all relevant fields
+func ExtractAllFields(installConfigPath string) (*ExtractedConfig, error) {
+	config, err := ReadInstallConfig(installConfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExtractedConfig{
+		ClusterName: config.Metadata.Name,
+		AwsRegion:   config.Platform.AWS.Region,
+		BaseDomain:  config.BaseDomain,
+		SSHKey:      config.SSHKey,
+		PullSecret:  config.PullSecret,
+	}, nil
+}
+
+// GenerateInstallConfig generates an install-config.yaml file from provided values
+func GenerateInstallConfig(path string, clusterName, baseDomain, awsRegion, sshKey, pullSecret string) error {
+	installConfig := map[string]interface{}{
+		"apiVersion": "v1",
+		"baseDomain": baseDomain,
+		"metadata": map[string]interface{}{
+			"name": clusterName,
+		},
+		"platform": map[string]interface{}{
+			"aws": map[string]interface{}{
+				"region": awsRegion,
+			},
+		},
+		"pullSecret": pullSecret,
+		"sshKey":     sshKey,
+	}
+
+	data, err := yaml.Marshal(installConfig)
+	if err != nil {
+		return fmt.Errorf("failed to marshal install-config: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write install-config.yaml: %w", err)
+	}
+
+	return nil
 }

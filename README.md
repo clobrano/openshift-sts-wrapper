@@ -84,12 +84,16 @@ Create `openshift-sts-installer.yaml`:
 
 ```yaml
 releaseImage: quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
-clusterName: my-cluster
-awsRegion: us-east-2
 awsProfile: default
 pullSecretPath: ./pull-secret.json
 privateBucket: false
-# outputDir defaults to artifacts/<version>/_output
+
+# Optional: Fields below are automatically saved after Step 4
+# If all are present (along with pullSecretPath), you'll be prompted to reuse them on subsequent runs
+clusterName: my-cluster
+awsRegion: us-east-2
+baseDomain: example.com
+sshKeyPath: /home/user/.ssh/id_rsa.pub
 ```
 
 Then run:
@@ -97,6 +101,8 @@ Then run:
 ```bash
 openshift-sts-installer install
 ```
+
+**Note:** After the first successful run of Step 4, the tool automatically saves `clusterName`, `awsRegion`, `baseDomain`, and `sshKey` to the config file. On subsequent runs, if all these fields plus `pullSecretPath` are present, you'll be prompted to reuse them instead of entering them interactively.
 
 ### Resume from Specific Step
 

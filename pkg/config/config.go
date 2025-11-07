@@ -11,6 +11,8 @@ type Config struct {
 	ReleaseImage    string `yaml:"releaseImage"`
 	ClusterName     string `yaml:"clusterName"`
 	AwsRegion       string `yaml:"awsRegion"`
+	BaseDomain      string `yaml:"baseDomain"`
+	SSHKeyPath      string `yaml:"sshKeyPath,omitempty"`
 	AwsProfile      string `yaml:"awsProfile"`
 	PullSecretPath  string `yaml:"pullSecretPath"`
 	PrivateBucket   bool   `yaml:"privateBucket"`
@@ -40,6 +42,8 @@ func LoadFromEnv() *Config {
 		ReleaseImage:    os.Getenv("OPENSHIFT_STS_RELEASE_IMAGE"),
 		ClusterName:     os.Getenv("OPENSHIFT_STS_CLUSTER_NAME"),
 		AwsRegion:       os.Getenv("OPENSHIFT_STS_AWS_REGION"),
+		BaseDomain:      os.Getenv("OPENSHIFT_STS_BASE_DOMAIN"),
+		SSHKeyPath:      os.Getenv("OPENSHIFT_STS_SSH_KEY_PATH"),
 		AwsProfile:      os.Getenv("OPENSHIFT_STS_AWS_PROFILE"),
 		PullSecretPath:  os.Getenv("OPENSHIFT_STS_PULL_SECRET_PATH"),
 		PrivateBucket:   os.Getenv("OPENSHIFT_STS_PRIVATE_BUCKET") == "true",
@@ -58,6 +62,12 @@ func (c *Config) Merge(other *Config) {
 	}
 	if other.AwsRegion != "" {
 		c.AwsRegion = other.AwsRegion
+	}
+	if other.BaseDomain != "" {
+		c.BaseDomain = other.BaseDomain
+	}
+	if other.SSHKeyPath != "" {
+		c.SSHKeyPath = other.SSHKeyPath
 	}
 	if other.AwsProfile != "" {
 		c.AwsProfile = other.AwsProfile
@@ -99,4 +109,41 @@ func (c *Config) SetDefaults() {
 	if c.InstanceType == "" {
 		c.InstanceType = "m5.4xlarge"
 	}
+}
+
+// SaveToFile saves configuration to a YAML file
+func SaveToFile(path string, cfg *Config) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
+// HasCompleteInstallConfigData checks if config has all required fields for install-config.yaml
+func (c *Config) HasCompleteInstallConfigData() (bool, []string) {
+	var missing []string
+
+	if c.ClusterName == "" {
+		missing = append(missing, "clusterName")
+	}
+	if c.AwsRegion == "" {
+		missing = append(missing, "awsRegion")
+	}
+	if c.BaseDomain == "" {
+		missing = append(missing, "baseDomain")
+	}
+	if c.SSHKeyPath == "" {
+		missing = append(missing, "sshKeyPath")
+	}
+	if c.PullSecretPath == "" {
+		missing = append(missing, "pullSecretPath")
+	}
+
+	return len(missing) == 0, missing
 }

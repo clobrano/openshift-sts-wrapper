@@ -1,6 +1,7 @@
 package steps
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -192,8 +193,55 @@ func (s *Step4CreateConfig) Execute() error {
 		return err
 	}
 
+	installConfigPath := util.GetInstallConfigPath(s.versionArch)
+
+	// Check if we have complete saved configuration
+	complete, missing := s.cfg.HasCompleteInstallConfigData()
+	if complete {
+		// Read pull secret from file
+		pullSecretContent, err := os.ReadFile(s.cfg.PullSecretPath)
+		if err != nil {
+			s.log.Info(fmt.Sprintf("Cannot read pull secret file: %v, running interactive mode", err))
+		} else {
+			// Read SSH key from file
+			sshKeyContent, err := os.ReadFile(s.cfg.SSHKeyPath)
+			if err != nil {
+				s.log.Info(fmt.Sprintf("Cannot read SSH key file: %v, running interactive mode", err))
+			} else {
+				// Display saved configuration to user
+				s.log.Info("Found saved configuration:")
+				s.log.Info(fmt.Sprintf("  Cluster Name: %s", s.cfg.ClusterName))
+				s.log.Info(fmt.Sprintf("  AWS Region: %s", s.cfg.AwsRegion))
+				s.log.Info(fmt.Sprintf("  Base Domain: %s", s.cfg.BaseDomain))
+				s.log.Info(fmt.Sprintf("  SSH Key: %s", s.cfg.SSHKeyPath))
+				s.log.Info(fmt.Sprintf("  Pull Secret: %s", s.cfg.PullSecretPath))
+
+				// Ask user for confirmation
+				if confirm(s.log, "Reuse this configuration") {
+					s.log.Info("Generating install-config.yaml from saved configuration...")
+					err := util.GenerateInstallConfig(
+						installConfigPath,
+						s.cfg.ClusterName,
+						s.cfg.BaseDomain,
+						s.cfg.AwsRegion,
+						strings.TrimSpace(string(sshKeyContent)),
+						string(pullSecretContent),
+					)
+					if err != nil {
+						return fmt.Errorf("failed to generate install-config.yaml: %w", err)
+					}
+					s.log.Info("✓ install-config.yaml generated from saved configuration")
+					return nil
+				}
+				s.log.Info("User chose to enter configuration interactively")
+			}
+		}
+	} else {
+		// Log which fields are missing
+		s.log.Info(fmt.Sprintf("Saved configuration is incomplete, running interactive mode (missing: %s)", strings.Join(missing, ", ")))
+	}
+
 	// Run openshift-install create install-config (interactive)
-	// TODO: if this step is run interactively, save user selections (from the created install-config.yaml) inside the openshift-sts-installer.yaml, for being able to skip this step in the future. Make this new step visible to the user
 	installBin := util.GetBinaryPath(s.versionArch, "openshift-install")
 	args := []string{"create", "install-config", "--dir", versionDir}
 
@@ -206,6 +254,23 @@ func (s *Step4CreateConfig) Execute() error {
 	}
 
 	return s.executor.ExecuteInteractiveWithEnv(installBin, envVars, args...)
+}
+
+// maskString masks a string showing only first and last n characters
+func maskString(s string, showChars int) string {
+	if len(s) <= showChars*2 {
+		return strings.Repeat("*", len(s))
+	}
+	return s[:showChars] + "..." + s[len(s)-showChars:]
+}
+
+// confirm prompts the user with a yes/no question
+func confirm(log *logger.Logger, prompt string) bool {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("%s? [y/N] ", prompt)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(answer)
+	return strings.ToLower(answer) == "y"
 }
 
 // Step5SetCredentialsMode appends credentialsMode: Manual to install-config.yaml
