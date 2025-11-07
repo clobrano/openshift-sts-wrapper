@@ -2,6 +2,8 @@ package steps
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -219,13 +221,21 @@ func (s *Step4CreateConfig) Execute() error {
 				// Ask user for confirmation
 				if confirm(s.log, "Reuse this configuration") {
 					s.log.Info("Generating install-config.yaml from saved configuration...")
-					err := util.GenerateInstallConfig(
+
+					// Compact the pull secret JSON to single line
+					compactPullSecret, err := compactJSON(pullSecretContent)
+					if err != nil {
+						return fmt.Errorf("failed to compact pull secret JSON: %w", err)
+					}
+
+					err = util.GenerateInstallConfig(
 						installConfigPath,
 						s.cfg.ClusterName,
 						s.cfg.BaseDomain,
 						s.cfg.AwsRegion,
 						strings.TrimSpace(string(sshKeyContent)),
-						string(pullSecretContent),
+						compactPullSecret,
+						s.cfg.InstanceType,
 					)
 					if err != nil {
 						return fmt.Errorf("failed to generate install-config.yaml: %w", err)
@@ -271,6 +281,15 @@ func confirm(log *logger.Logger, prompt string) bool {
 	answer, _ := reader.ReadString('\n')
 	answer = strings.TrimSpace(answer)
 	return strings.ToLower(answer) == "y"
+}
+
+// compactJSON compacts a JSON string to a single line
+func compactJSON(data []byte) (string, error) {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, data); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 // Step5SetCredentialsMode appends credentialsMode: Manual to install-config.yaml

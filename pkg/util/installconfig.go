@@ -80,19 +80,69 @@ func ExtractAllFields(installConfigPath string) (*ExtractedConfig, error) {
 	}, nil
 }
 
-// GenerateInstallConfig generates an install-config.yaml file from provided values
-func GenerateInstallConfig(path string, clusterName, baseDomain, awsRegion, sshKey, pullSecret string) error {
+// GenerateInstallConfig generates a complete install-config.yaml file from provided values
+func GenerateInstallConfig(path string, clusterName, baseDomain, awsRegion, sshKey, pullSecret, instanceType string) error {
+	// Use default instance type if not specified
+	if instanceType == "" {
+		instanceType = "m5.4xlarge"
+	}
+
 	installConfig := map[string]interface{}{
-		"apiVersion": "v1",
-		"baseDomain": baseDomain,
+		"additionalTrustBundlePolicy": "Proxyonly",
+		"apiVersion":                  "v1",
+		"baseDomain":                  baseDomain,
+		"compute": []interface{}{
+			map[string]interface{}{
+				"architecture":   "amd64",
+				"hyperthreading": "Enabled",
+				"name":           "worker",
+				"platform": map[string]interface{}{
+					"aws": map[string]interface{}{
+						"type": instanceType,
+					},
+				},
+				"replicas": 3,
+			},
+		},
+		"controlPlane": map[string]interface{}{
+			"architecture":   "amd64",
+			"hyperthreading": "Enabled",
+			"name":           "master",
+			"platform": map[string]interface{}{
+				"aws": map[string]interface{}{
+					"type": instanceType,
+				},
+			},
+			"replicas": 3,
+		},
 		"metadata": map[string]interface{}{
-			"name": clusterName,
+			"creationTimestamp": nil,
+			"name":              clusterName,
+		},
+		"networking": map[string]interface{}{
+			"clusterNetwork": []interface{}{
+				map[string]interface{}{
+					"cidr":       "10.128.0.0/14",
+					"hostPrefix": 23,
+				},
+			},
+			"machineNetwork": []interface{}{
+				map[string]interface{}{
+					"cidr": "10.0.0.0/16",
+				},
+			},
+			"networkType": "OVNKubernetes",
+			"serviceNetwork": []interface{}{
+				"172.30.0.0/16",
+			},
 		},
 		"platform": map[string]interface{}{
 			"aws": map[string]interface{}{
 				"region": awsRegion,
+				"vpc":    map[string]interface{}{},
 			},
 		},
+		"publish":    "External",
 		"pullSecret": pullSecret,
 		"sshKey":     sshKey,
 	}
