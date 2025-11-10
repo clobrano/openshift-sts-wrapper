@@ -30,6 +30,15 @@ func FileExists(path string) bool {
 	return !info.IsDir()
 }
 
+// DirExists checks if a directory exists
+func DirExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
 // FileContains checks if a file exists and contains the specified string
 func FileContains(path string, needle string) bool {
 	content, err := os.ReadFile(path)
@@ -61,19 +70,37 @@ func EnsureDir(path string) error {
 	return os.MkdirAll(path, 0755)
 }
 
+// GetSharedBinaryPath returns the full path to a binary in the shared artifacts directory
+func GetSharedBinaryPath(versionArch, binaryName string) string {
+	return filepath.Join("artifacts", "shared", versionArch, "bin", binaryName)
+}
+
+// GetSharedCredReqsPath returns the path to the shared credentials requests directory
+func GetSharedCredReqsPath(versionArch string) string {
+	return filepath.Join("artifacts", "shared", versionArch, "credreqs")
+}
+
+// GetClusterPath returns the path to a cluster-specific subdirectory
+func GetClusterPath(clusterName, subpath string) string {
+	return filepath.Join("artifacts", "clusters", clusterName, subpath)
+}
+
+// GetInstallConfigPath returns the path to the install-config.yaml for a specific cluster
+func GetInstallConfigPath(versionArch, clusterName string) string {
+	return filepath.Join("artifacts", "clusters", clusterName, "install-config.yaml")
+}
+
+// Legacy path helpers for backward compatibility (deprecated)
 // GetBinaryPath returns the full path to a binary in the version-specific artifacts directory
+// Deprecated: Use GetSharedBinaryPath instead
 func GetBinaryPath(versionArch, binaryName string) string {
 	return filepath.Join("artifacts", versionArch, "bin", binaryName)
 }
 
 // GetCredReqsPath returns the path to the credentials requests directory
+// Deprecated: Use GetSharedCredReqsPath instead
 func GetCredReqsPath(versionArch string) string {
 	return filepath.Join("artifacts", versionArch, "credreqs")
-}
-
-// GetInstallConfigPath returns the path to the install-config.yaml
-func GetInstallConfigPath(versionArch string) string {
-	return filepath.Join("artifacts", versionArch, "install-config.yaml")
 }
 
 // CopyFile copies a file from src to dst

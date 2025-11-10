@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,9 +13,9 @@ import (
 )
 
 var (
-	cleanupClusterName  string
-	cleanupAwsRegion    string
-	cleanupReleaseImage string
+	cleanupClusterName   string
+	cleanupAwsRegion     string
+	cleanupReleaseImage  string
 	cleanupFromArtifacts string
 )
 
@@ -30,50 +29,27 @@ var cleanupCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(cleanupCmd)
 
-	cleanupCmd.Flags().StringVar(&cleanupClusterName, "cluster-name", "", "Cluster/infrastructure name (not needed if --from-artifacts is provided)")
-	cleanupCmd.Flags().StringVar(&cleanupAwsRegion, "region", "", "AWS region (not needed if --from-artifacts is provided)")
-	cleanupCmd.Flags().StringVar(&cleanupReleaseImage, "release-image", "", "OpenShift release image (not needed if --from-artifacts is provided)")
-	cleanupCmd.Flags().StringVar(&cleanupFromArtifacts, "from-artifacts", "", "Path to artifacts directory (e.g., artifacts/4.12.0-x86_64)")
+	cleanupCmd.Flags().StringVar(&cleanupClusterName, "cluster-name", "", "Cluster/infrastructure name (required)")
+	cleanupCmd.Flags().StringVar(&cleanupAwsRegion, "region", "", "AWS region (required)")
+	cleanupCmd.Flags().StringVar(&cleanupReleaseImage, "release-image", "", "OpenShift release image (optional - for infrastructure cleanup)")
+	cleanupCmd.Flags().StringVar(&cleanupFromArtifacts, "from-artifacts", "", "Path to cluster artifacts directory (e.g., artifacts/clusters/my-cluster) - deprecated")
 }
 
 func runCleanup(cmd *cobra.Command, args []string) {
 	log := logger.New(logger.Level(getLogLevel()), nil)
 
-	var versionDir string
-
-	// If --from-artifacts is provided, derive everything from the artifacts directory
-	if cleanupFromArtifacts != "" {
-		log.Info(fmt.Sprintf("Reading cluster information from %s", cleanupFromArtifacts))
-
-		// Read metadata.json to get cluster name and region
-		metadata, err := util.ReadClusterMetadata(cleanupFromArtifacts)
-		if err != nil {
-			log.Error(fmt.Sprintf("Failed to read cluster metadata: %v", err))
-			log.Error("Could not find cluster name and region values in metadata.json")
-			log.Error("Please provide the values using --cluster-name and --region flags")
-			log.Info("")
-			log.Info("Example:")
-			log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
-			os.Exit(1)
-		}
-
-		cleanupClusterName = metadata.ClusterName
-		cleanupAwsRegion = metadata.AWS.Region
-		versionDir = cleanupFromArtifacts
-
-		log.Info(fmt.Sprintf("Cluster Name: %s", cleanupClusterName))
-		log.Info(fmt.Sprintf("AWS Region: %s", cleanupAwsRegion))
-	} else {
-		// Validate required flags if --from-artifacts is not provided
-		if cleanupClusterName == "" || cleanupAwsRegion == "" {
-			log.Error("Either --from-artifacts must be provided, or both --cluster-name and --region are required")
-			log.Info("")
-			log.Info("Examples:")
-			log.Info("  openshift-sts-installer cleanup --from-artifacts=artifacts/4.12.0-x86_64")
-			log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
-			os.Exit(1)
-		}
+	// Validate required flags
+	if cleanupClusterName == "" || cleanupAwsRegion == "" {
+		log.Error("Both --cluster-name and --region are required")
+		log.Info("")
+		log.Info("Examples:")
+		log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
+		log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2 --release-image=quay.io/...")
+		os.Exit(1)
 	}
+
+	// Derive cluster directory path
+	clusterDir := util.GetClusterPath(cleanupClusterName, "")
 
 	// Load config to get AWS profile
 	cfg := &config.Config{}
@@ -113,30 +89,20 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 	executor := &util.RealExecutor{}
 
-	// Step 1: Run openshift-install destroy if we have the version directory
-	if versionDir != "" || cleanupReleaseImage != "" {
-		// If versionDir is already set from --from-artifacts, use it
-		// Otherwise, derive it from --release-image
-		if versionDir == "" {
-			versionArch, err := util.ExtractVersionArch(cleanupReleaseImage)
-			if err != nil {
-				log.Error(fmt.Sprintf("Failed to extract version from release image: %v", err))
-			} else {
-				versionDir = fmt.Sprintf("artifacts/%s", versionArch)
-			}
-		}
-
-		if versionDir != "" {
-			stateFile := fmt.Sprintf("%s/.openshift_install_state.json", versionDir)
-			// Extract version-arch from versionDir path for GetBinaryPath
-			versionArch := filepath.Base(versionDir)
-			installBin := util.GetBinaryPath(versionArch, "openshift-install")
+	// Step 1: Run openshift-install destroy if we have the release image
+	if cleanupReleaseImage != "" {
+		versionArch, err := util.ExtractVersionArch(cleanupReleaseImage)
+		if err != nil {
+			log.Error(fmt.Sprintf("Failed to extract version from release image: %v", err))
+		} else {
+			stateFile := util.GetClusterPath(cleanupClusterName, ".openshift_install_state.json")
+			installBin := util.GetSharedBinaryPath(versionArch, "openshift-install")
 
 			// Check if state file exists
 			if util.FileExists(stateFile) {
 				log.StartStep("Destroying OpenShift infrastructure")
 
-				destroyArgs := []string{"destroy", "cluster", "--dir", versionDir, "--log-level=debug"}
+				destroyArgs := []string{"destroy", "cluster", "--dir", clusterDir, "--log-level=debug"}
 
 				// Get AWS credentials from profile and pass them as environment variables
 				awsEnv, err := util.GetAWSEnvVars(cfg.AwsProfile)
@@ -164,26 +130,23 @@ func runCleanup(cmd *cobra.Command, args []string) {
 			}
 		}
 	} else {
-		log.Info("No --from-artifacts or --release-image provided, skipping openshift-install destroy")
-		log.Info("If you have orphaned infrastructure, run: ./artifacts/<version>/bin/openshift-install destroy cluster --dir artifacts/<version>/")
+		log.Info("No --release-image provided, skipping openshift-install destroy")
+		log.Info("Only IAM roles and S3 bucket will be cleaned up")
 	}
 
 	// Step 2: Run ccoctl aws delete to clean up IAM roles and S3 bucket
 	log.StartStep("Cleaning up IAM roles and S3 bucket")
 
-	// Find ccoctl binary
+	// Find ccoctl binary - look in shared artifacts if release image is provided
 	ccoctlPath := "ccoctl"
 	if cleanupReleaseImage != "" {
 		versionArch, err := util.ExtractVersionArch(cleanupReleaseImage)
 		if err == nil {
-			versionCcoctl := util.GetBinaryPath(versionArch, "ccoctl")
-			if util.FileExists(versionCcoctl) {
-				ccoctlPath = versionCcoctl
+			sharedCcoctl := util.GetSharedBinaryPath(versionArch, "ccoctl")
+			if util.FileExists(sharedCcoctl) {
+				ccoctlPath = sharedCcoctl
 			}
 		}
-	}
-	if ccoctlPath == "ccoctl" && util.FileExists("artifacts/bin/ccoctl") {
-		ccoctlPath = "artifacts/bin/ccoctl"
 	}
 
 	args_cleanup := []string{
@@ -192,11 +155,24 @@ func runCleanup(cmd *cobra.Command, args []string) {
 		"--region", cleanupAwsRegion,
 	}
 
-	if err := util.RunCommand(executor, ccoctlPath, args_cleanup...); err != nil {
-		log.FailStep("Cleanup IAM/S3")
-		log.Error(fmt.Sprintf("Failed to clean up IAM/S3: %v", err))
-		log.Info("You may need to manually delete AWS resources.")
-		os.Exit(1)
+	// Get AWS credentials from profile and pass them as environment variables
+	awsEnv, err := util.GetAWSEnvVars(cfg.AwsProfile)
+	if err != nil {
+		log.Debug(fmt.Sprintf("Could not read AWS credentials: %v", err))
+		log.Debug("Proceeding without explicit AWS credential injection")
+		if err := util.RunCommand(executor, ccoctlPath, args_cleanup...); err != nil {
+			log.FailStep("Cleanup IAM/S3")
+			log.Error(fmt.Sprintf("Failed to clean up IAM/S3: %v", err))
+			log.Info("You may need to manually delete AWS resources.")
+			os.Exit(1)
+		}
+	} else {
+		if err := util.RunCommandWithEnv(executor, awsEnv, ccoctlPath, args_cleanup...); err != nil {
+			log.FailStep("Cleanup IAM/S3")
+			log.Error(fmt.Sprintf("Failed to clean up IAM/S3: %v", err))
+			log.Info("You may need to manually delete AWS resources.")
+			os.Exit(1)
+		}
 	}
 
 	log.CompleteStep("Cleanup IAM/S3")

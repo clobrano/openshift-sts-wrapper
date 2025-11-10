@@ -11,7 +11,6 @@ func TestLoadConfigFromFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "openshift-sts-installer.yaml")
 	configContent := `releaseImage: quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
-clusterName: test-cluster
 awsRegion: us-east-2
 pullSecretPath: ./pull-secret.json
 privateBucket: true
@@ -29,8 +28,9 @@ privateBucket: true
 	if cfg.ReleaseImage != "quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64" {
 		t.Errorf("Expected ReleaseImage to be set, got %q", cfg.ReleaseImage)
 	}
-	if cfg.ClusterName != "test-cluster" {
-		t.Errorf("Expected ClusterName to be 'test-cluster', got %q", cfg.ClusterName)
+	// ClusterName should NOT be loaded from config file (yaml:"-" tag)
+	if cfg.ClusterName != "" {
+		t.Errorf("Expected ClusterName to be empty (not loaded from file), got %q", cfg.ClusterName)
 	}
 	if cfg.AwsRegion != "us-east-2" {
 		t.Errorf("Expected AwsRegion to be 'us-east-2', got %q", cfg.AwsRegion)
@@ -42,11 +42,9 @@ privateBucket: true
 
 func TestLoadConfigFromEnv(t *testing.T) {
 	os.Setenv("OPENSHIFT_STS_RELEASE_IMAGE", "quay.io/test:4.11.0-x86_64")
-	os.Setenv("OPENSHIFT_STS_CLUSTER_NAME", "env-cluster")
 	os.Setenv("OPENSHIFT_STS_AWS_REGION", "us-west-2")
 	defer func() {
 		os.Unsetenv("OPENSHIFT_STS_RELEASE_IMAGE")
-		os.Unsetenv("OPENSHIFT_STS_CLUSTER_NAME")
 		os.Unsetenv("OPENSHIFT_STS_AWS_REGION")
 	}()
 
@@ -55,8 +53,9 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	if cfg.ReleaseImage != "quay.io/test:4.11.0-x86_64" {
 		t.Errorf("Expected ReleaseImage from env, got %q", cfg.ReleaseImage)
 	}
-	if cfg.ClusterName != "env-cluster" {
-		t.Errorf("Expected ClusterName from env, got %q", cfg.ClusterName)
+	// ClusterName should NOT be loaded from env
+	if cfg.ClusterName != "" {
+		t.Errorf("Expected ClusterName to be empty (not loaded from env), got %q", cfg.ClusterName)
 	}
 	if cfg.AwsRegion != "us-west-2" {
 		t.Errorf("Expected AwsRegion from env, got %q", cfg.AwsRegion)
@@ -113,13 +112,13 @@ func TestValidateConfig(t *testing.T) {
 			shouldError: true,
 		},
 		{
-			name: "missing cluster name is ok",
+			name: "missing cluster name is now an error",
 			config: Config{
 				ReleaseImage:   "quay.io/test:4.12.0-x86_64",
 				AwsRegion:      "us-east-1",
 				PullSecretPath: "pull-secret.json",
 			},
-			shouldError: false,
+			shouldError: true,
 		},
 		{
 			name: "missing aws region is ok",

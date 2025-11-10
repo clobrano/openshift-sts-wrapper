@@ -16,6 +16,7 @@ import (
 
 var (
 	releaseImage    string
+	clusterName     string
 	awsProfile      string
 	pullSecretPath  string
 	privateBucket   bool
@@ -34,7 +35,8 @@ var installCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(installCmd)
 
-	installCmd.Flags().StringVar(&releaseImage, "release-image", "", "OpenShift release image URL")
+	installCmd.Flags().StringVar(&releaseImage, "release-image", "", "OpenShift release image URL (required)")
+	installCmd.Flags().StringVar(&clusterName, "cluster-name", "", "Cluster name (required)")
 	installCmd.Flags().StringVar(&awsProfile, "aws-profile", "", "AWS profile name (default: default)")
 	installCmd.Flags().StringVar(&pullSecretPath, "pull-secret", "", "Path to pull secret file")
 	installCmd.Flags().BoolVar(&privateBucket, "private-bucket", false, "Use private S3 bucket with CloudFront")
@@ -79,6 +81,19 @@ func runInstall(cmd *cobra.Command, args []string) {
 	if err := config.ValidatePullSecret(cfg.PullSecretPath); err != nil {
 		log.Error(fmt.Sprintf("Pull secret validation failed: %v", err))
 		log.Info("Please ensure the pull secret is valid JSON format")
+		os.Exit(1)
+	}
+
+	// Check if cluster directory already exists
+	clusterDir := util.GetClusterPath(cfg.ClusterName, "")
+	if util.DirExists(clusterDir) {
+		log.Error(fmt.Sprintf("Cluster directory already exists: %s", clusterDir))
+		log.Error(fmt.Sprintf("A cluster with name '%s' appears to already exist or was previously installed", cfg.ClusterName))
+		log.Info("")
+		log.Info("Options:")
+		log.Info("  1. Use a different cluster name: --cluster-name=<new-name>")
+		log.Info("  2. Clean up the existing cluster first:")
+		log.Info("     openshift-sts-installer cleanup --help")
 		os.Exit(1)
 	}
 
@@ -163,56 +178,11 @@ func runInstall(cmd *cobra.Command, args []string) {
 			log.CompleteStep(fmt.Sprintf("[Step %d] %s", stepDef.num, step.Name()))
 			summary.AddSuccess(fmt.Sprintf("[Step %d] %s", stepDef.num, step.Name()))
 
-			// After Step 4, extract all fields from install-config.yaml and save to config file
-			// This must be done before Step 6 consumes the file
-			if stepDef.num == 4 {
-				versionArch, err := util.ExtractVersionArch(cfg.ReleaseImage)
-				if err == nil {
-					installConfigPath := util.GetInstallConfigPath(versionArch)
-					if util.FileExists(installConfigPath) {
-						extracted, err := util.ExtractAllFields(installConfigPath)
-						if err == nil {
-							// Update config with extracted values (pull secret is read from file, not saved)
-							cfg.ClusterName = extracted.ClusterName
-							cfg.AwsRegion = extracted.AwsRegion
-							cfg.BaseDomain = extracted.BaseDomain
-
-							log.Debug(fmt.Sprintf("Extracted cluster name: %s", extracted.ClusterName))
-							log.Debug(fmt.Sprintf("Extracted AWS region: %s", extracted.AwsRegion))
-							log.Debug(fmt.Sprintf("Extracted base domain: %s", extracted.BaseDomain))
-
-							// Find SSH key path from extracted content
-							sshKeyPath, err := util.FindSSHKeyPath(extracted.SSHKey)
-							if err != nil {
-								log.Debug(fmt.Sprintf("Could not find SSH key file in ~/.ssh: %v", err))
-								log.Debug("SSH key path will not be saved to config")
-							} else {
-								cfg.SSHKeyPath = sshKeyPath
-								log.Debug(fmt.Sprintf("Found SSH key at: %s", sshKeyPath))
-							}
-
-							// Save configuration to file for future runs
-							configPath := cfgFile
-							if configPath == "" {
-								configPath = "openshift-sts-installer.yaml"
-							}
-							if err := config.SaveToFile(configPath, cfg); err != nil {
-								log.Debug(fmt.Sprintf("Could not save config to file: %v", err))
-							} else {
-								log.Info(fmt.Sprintf("✓ Configuration saved to %s for future runs", configPath))
-							}
-						} else {
-							log.Debug(fmt.Sprintf("Could not extract fields from install-config.yaml: %v", err))
-						}
-					}
-				}
-			}
-
 			// After Step 5, backup install-config.yaml before Step 6 consumes it
 			if stepDef.num == 5 {
 				versionArch, err := util.ExtractVersionArch(cfg.ReleaseImage)
 				if err == nil {
-					installConfigPath := util.GetInstallConfigPath(versionArch)
+					installConfigPath := util.GetInstallConfigPath(versionArch, cfg.ClusterName)
 					if util.FileExists(installConfigPath) {
 						backupPath := installConfigPath + ".backup"
 						if err := util.CopyFile(installConfigPath, backupPath); err != nil {
@@ -258,6 +228,7 @@ func loadConfig(log *logger.Logger) *config.Config {
 	// 3. Merge flags
 	flagCfg := &config.Config{
 		ReleaseImage:    releaseImage,
+		ClusterName:     clusterName,
 		AwsProfile:      awsProfile,
 		PullSecretPath:  pullSecretPath,
 		PrivateBucket:   privateBucket,

@@ -125,12 +125,13 @@ func TestStep4SetCredentialsMode(t *testing.T) {
 
 	cfg := &config.Config{
 		ReleaseImage: "quay.io/test:4.12.0-x86_64",
+		ClusterName:  "test-cluster",
 	}
 	log := logger.New(logger.LevelQuiet, nil)
 	executor := util.NewMockExecutor()
 
 	// Create install-config.yaml
-	configPath := util.GetInstallConfigPath("4.12.0-x86_64")
+	configPath := util.GetInstallConfigPath("4.12.0-x86_64", "test-cluster")
 	os.MkdirAll(filepath.Dir(configPath), 0755)
 	os.WriteFile(configPath, []byte("apiVersion: v1\n"), 0644)
 

@@ -1,8 +1,6 @@
 package steps
 
 import (
-	"path/filepath"
-
 	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/config"
 	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/util"
 )
@@ -29,33 +27,33 @@ func (d *Detector) ShouldSkipStep(stepNum int) bool {
 	// Otherwise, check for evidence of completion
 	switch stepNum {
 	case 1:
-		// Step 1: Extract credentials requests
-		return util.DirExistsWithFiles(util.GetCredReqsPath(d.versionArch))
+		// Step 1: Extract credentials requests (shared)
+		return util.DirExistsWithFiles(util.GetSharedCredReqsPath(d.versionArch))
 	case 2:
-		// Step 2: Extract openshift-install binary
-		return util.FileExists(util.GetBinaryPath(d.versionArch, "openshift-install"))
+		// Step 2: Extract openshift-install binary (shared)
+		return util.FileExists(util.GetSharedBinaryPath(d.versionArch, "openshift-install"))
 	case 3:
-		// Step 3: Extract ccoctl binary
-		return util.FileExists(util.GetBinaryPath(d.versionArch, "ccoctl"))
+		// Step 3: Extract ccoctl binary (shared)
+		return util.FileExists(util.GetSharedBinaryPath(d.versionArch, "ccoctl"))
 	case 4:
-		// Step 4: Create install-config.yaml
-		return util.FileExists(util.GetInstallConfigPath(d.versionArch))
+		// Step 4: Create install-config.yaml (cluster-specific)
+		return util.FileExists(util.GetInstallConfigPath(d.versionArch, d.cfg.ClusterName))
 	case 5:
-		// Step 5: Set credentialsMode
-		return util.FileContains(util.GetInstallConfigPath(d.versionArch), "credentialsMode: Manual")
+		// Step 5: Set credentialsMode (cluster-specific)
+		return util.FileContains(util.GetInstallConfigPath(d.versionArch, d.cfg.ClusterName), "credentialsMode: Manual")
 	case 6:
-		// Step 6: Create manifests
-		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "manifests"))
+		// Step 6: Create manifests (cluster-specific)
+		return util.DirExistsWithFiles(util.GetClusterPath(d.cfg.ClusterName, "ccoctl-output/manifests"))
 	case 7:
-		// Step 7: Create AWS resources
-		return util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "manifests")) &&
-			util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "tls"))
+		// Step 7: Create AWS resources (cluster-specific)
+		return util.DirExistsWithFiles(util.GetClusterPath(d.cfg.ClusterName, "ccoctl-output/manifests")) &&
+			util.DirExistsWithFiles(util.GetClusterPath(d.cfg.ClusterName, "ccoctl-output/tls"))
 	case 8:
-		// Step 8: Copy manifests
-		return !util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "manifests"))
+		// Step 8: Copy manifests (cluster-specific)
+		return !util.DirExistsWithFiles(util.GetClusterPath(d.cfg.ClusterName, "ccoctl-output/manifests"))
 	case 9:
-		// Step 9: Copy TLS
-		return !util.DirExistsWithFiles(filepath.Join("artifacts", d.versionArch, "ccoctl-output", "tls"))
+		// Step 9: Copy TLS (cluster-specific)
+		return !util.DirExistsWithFiles(util.GetClusterPath(d.cfg.ClusterName, "ccoctl-output/tls"))
 	case 10:
 		// Step 10: Deploy cluster
 		// Always try to deploy the cluster, don't skip it

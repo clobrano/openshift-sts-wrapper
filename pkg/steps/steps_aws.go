@@ -29,16 +29,20 @@ func (s *Step7CreateAWSResources) Name() string {
 }
 
 func (s *Step7CreateAWSResources) Execute() error {
-	ccoctlBin := util.GetBinaryPath(s.versionArch, "ccoctl")
-	credreqsPath := util.GetCredReqsPath(s.versionArch)
+	ccoctlBin := util.GetSharedBinaryPath(s.versionArch, "ccoctl")
+	credreqsPath := util.GetSharedCredReqsPath(s.versionArch)
 
-	// Cluster name and region should be available from config
-	// (loaded after Step 4 from install-config.yaml if not specified)
-	if s.cfg.ClusterName == "" || s.cfg.AwsRegion == "" {
-		return fmt.Errorf("cluster name and AWS region are required. They should have been loaded from install-config.yaml after Step 4")
+	// Cluster name is required from CLI flag
+	if s.cfg.ClusterName == "" {
+		return fmt.Errorf("cluster name is required (use --cluster-name flag)")
 	}
 
-	outputDir := filepath.Join("artifacts", s.versionArch, "ccoctl-output")
+	// AWS region should be available from config or can be extracted from install-config.yaml
+	if s.cfg.AwsRegion == "" {
+		return fmt.Errorf("AWS region is required")
+	}
+
+	outputDir := util.GetClusterPath(s.cfg.ClusterName, "ccoctl-output")
 	args := []string{
 		"aws", "create-all",
 		"--name", s.cfg.ClusterName,
@@ -80,8 +84,8 @@ func (s *Step8CopyManifests) Name() string {
 }
 
 func (s *Step8CopyManifests) Execute() error {
-	srcDir := filepath.Join("artifacts", s.versionArch, "ccoctl-output", "manifests")
-	dstDir := filepath.Join("artifacts", s.versionArch, "manifests")
+	srcDir := util.GetClusterPath(s.cfg.ClusterName, "ccoctl-output/manifests")
+	dstDir := util.GetClusterPath(s.cfg.ClusterName, "manifests")
 
 	if err := util.EnsureDir(dstDir); err != nil {
 		return err
@@ -108,9 +112,9 @@ func (s *Step9CopyTLS) Name() string {
 }
 
 func (s *Step9CopyTLS) Execute() error {
-	ccoctlOutputDir := filepath.Join("artifacts", s.versionArch, "ccoctl-output")
-	srcDir := filepath.Join(ccoctlOutputDir, "tls")
-	dstDir := filepath.Join("artifacts", s.versionArch, "tls")
+	ccoctlOutputDir := util.GetClusterPath(s.cfg.ClusterName, "ccoctl-output")
+	srcDir := util.GetClusterPath(s.cfg.ClusterName, "ccoctl-output/tls")
+	dstDir := util.GetClusterPath(s.cfg.ClusterName, "tls")
 
 	if err := util.EnsureDir(dstDir); err != nil {
 		return err
@@ -148,9 +152,9 @@ func (s *Step10DeployCluster) Name() string {
 }
 
 func (s *Step10DeployCluster) Execute() error {
-	versionDir := filepath.Join("artifacts", s.versionArch)
-	installBin := util.GetBinaryPath(s.versionArch, "openshift-install")
-	args := []string{"create", "cluster", "--dir", versionDir, "--log-level=debug"}
+	clusterDir := util.GetClusterPath(s.cfg.ClusterName, "")
+	installBin := util.GetSharedBinaryPath(s.versionArch, "openshift-install")
+	args := []string{"create", "cluster", "--dir", clusterDir, "--log-level=debug"}
 
 	// Get AWS credentials from profile and set as environment variables
 	awsEnv, err := util.GetAWSEnvVars(s.cfg.AwsProfile)
@@ -185,7 +189,7 @@ func (s *Step11Verify) Name() string {
 
 func (s *Step11Verify) Execute() error {
 	// Set KUBECONFIG environment variable to point to the kubeconfig file
-	kubeconfigPath := filepath.Join("artifacts", s.versionArch, "auth", "kubeconfig")
+	kubeconfigPath := util.GetClusterPath(s.cfg.ClusterName, "auth/kubeconfig")
 	if !util.FileExists(kubeconfigPath) {
 		return fmt.Errorf("kubeconfig not found at %s - cluster may not have been deployed successfully", kubeconfigPath)
 	}

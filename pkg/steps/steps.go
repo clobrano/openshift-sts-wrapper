@@ -61,7 +61,7 @@ func (s *Step1ExtractCredReqs) Name() string {
 }
 
 func (s *Step1ExtractCredReqs) Execute() error {
-	credreqsPath := util.GetCredReqsPath(s.versionArch)
+	credreqsPath := util.GetSharedCredReqsPath(s.versionArch)
 	if err := util.EnsureDir(credreqsPath); err != nil {
 		return fmt.Errorf("failed to create credreqs directory: %w", err)
 	}
@@ -95,13 +95,13 @@ func (s *Step2ExtractOpenshiftInstall) Name() string {
 }
 
 func (s *Step2ExtractOpenshiftInstall) Execute() error {
-	binPath := filepath.Join("artifacts", s.versionArch, "bin")
+	binPath := filepath.Join("artifacts", "shared", s.versionArch, "bin")
 	if err := util.EnsureDir(binPath); err != nil {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
 	// Extract openshift-install
-	installBinPath := filepath.Join(binPath, "openshift-install")
+	installBinPath := util.GetSharedBinaryPath(s.versionArch, "openshift-install")
 	args := []string{
 		"adm", "release", "extract",
 		"--command=openshift-install",
@@ -136,8 +136,7 @@ func (s *Step3ExtractCcoctl) Name() string {
 }
 
 func (s *Step3ExtractCcoctl) Execute() error {
-	binPath := filepath.Join("artifacts", s.versionArch, "bin")
-	ccoctlPath := filepath.Join(binPath, "ccoctl")
+	ccoctlPath := util.GetSharedBinaryPath(s.versionArch, "ccoctl")
 
 	// Get CCO image
 	ccoImageArgs := []string{"adm", "release", "info", "--image-for=cloud-credential-operator", s.cfg.ReleaseImage}
@@ -189,13 +188,13 @@ func (s *Step4CreateConfig) Name() string {
 }
 
 func (s *Step4CreateConfig) Execute() error {
-	// Ensure the version-specific directory exists
-	versionDir := filepath.Join("artifacts", s.versionArch)
-	if err := util.EnsureDir(versionDir); err != nil {
+	// Ensure the cluster-specific directory exists
+	clusterDir := util.GetClusterPath(s.cfg.ClusterName, "")
+	if err := util.EnsureDir(clusterDir); err != nil {
 		return err
 	}
 
-	installConfigPath := util.GetInstallConfigPath(s.versionArch)
+	installConfigPath := util.GetInstallConfigPath(s.versionArch, s.cfg.ClusterName)
 
 	// Check if we have complete saved configuration
 	complete, missing := s.cfg.HasCompleteInstallConfigData()
@@ -252,8 +251,8 @@ func (s *Step4CreateConfig) Execute() error {
 	}
 
 	// Run openshift-install create install-config (interactive)
-	installBin := util.GetBinaryPath(s.versionArch, "openshift-install")
-	args := []string{"create", "install-config", "--dir", versionDir}
+	installBin := util.GetSharedBinaryPath(s.versionArch, "openshift-install")
+	args := []string{"create", "install-config", "--dir", clusterDir}
 
 	// Get AWS credentials from profile and pass them as environment variables
 	envVars, err := util.GetAWSEnvVars(s.cfg.AwsProfile)
@@ -310,7 +309,7 @@ func (s *Step5SetCredentialsMode) Name() string {
 }
 
 func (s *Step5SetCredentialsMode) Execute() error {
-	configPath := util.GetInstallConfigPath(s.versionArch)
+	configPath := util.GetInstallConfigPath(s.versionArch, s.cfg.ClusterName)
 
 	// Read existing config
 	content, err := os.ReadFile(configPath)
@@ -400,9 +399,9 @@ func (s *Step6CreateManifests) Name() string {
 }
 
 func (s *Step6CreateManifests) Execute() error {
-	versionDir := filepath.Join("artifacts", s.versionArch)
-	installBin := util.GetBinaryPath(s.versionArch, "openshift-install")
-	args := []string{"create", "manifests", "--dir", versionDir}
+	clusterDir := util.GetClusterPath(s.cfg.ClusterName, "")
+	installBin := util.GetSharedBinaryPath(s.versionArch, "openshift-install")
+	args := []string{"create", "manifests", "--dir", clusterDir}
 
 	// Get AWS credentials from profile and pass them as environment variables
 	envVars, err := util.GetAWSEnvVars(s.cfg.AwsProfile)

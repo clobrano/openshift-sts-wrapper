@@ -157,9 +157,9 @@ aws_session_token = FwoGZXIvYXdzEBQaDExampleSessionToken
 	}
 
 	expectedVars := map[string]bool{
-		"AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE":                           false,
-		"AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY":   false,
-		"AWS_SESSION_TOKEN=FwoGZXIvYXdzEBQaDExampleSessionToken":           false,
+		"AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE":                         false,
+		"AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY": false,
+		"AWS_SESSION_TOKEN=FwoGZXIvYXdzEBQaDExampleSessionToken":         false,
 	}
 
 	for _, envVar := range envVars {

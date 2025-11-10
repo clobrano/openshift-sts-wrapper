@@ -9,7 +9,7 @@ import (
 
 type Config struct {
 	ReleaseImage    string `yaml:"releaseImage"`
-	ClusterName     string `yaml:"clusterName"`
+	ClusterName     string `yaml:"-"` // Not loaded from config file - must be provided via CLI flag
 	AwsRegion       string `yaml:"awsRegion"`
 	BaseDomain      string `yaml:"baseDomain"`
 	SSHKeyPath      string `yaml:"sshKeyPath,omitempty"`
@@ -39,8 +39,8 @@ func LoadFromFile(path string) (*Config, error) {
 // LoadFromEnv loads configuration from environment variables
 func LoadFromEnv() *Config {
 	return &Config{
-		ReleaseImage:    os.Getenv("OPENSHIFT_STS_RELEASE_IMAGE"),
-		ClusterName:     os.Getenv("OPENSHIFT_STS_CLUSTER_NAME"),
+		ReleaseImage: os.Getenv("OPENSHIFT_STS_RELEASE_IMAGE"),
+		// ClusterName is not loaded from env - must be provided via CLI flag
 		AwsRegion:       os.Getenv("OPENSHIFT_STS_AWS_REGION"),
 		BaseDomain:      os.Getenv("OPENSHIFT_STS_BASE_DOMAIN"),
 		SSHKeyPath:      os.Getenv("OPENSHIFT_STS_SSH_KEY_PATH"),
@@ -57,6 +57,7 @@ func (c *Config) Merge(other *Config) {
 	if other.ReleaseImage != "" {
 		c.ReleaseImage = other.ReleaseImage
 	}
+	// ClusterName is explicitly set from CLI flag, not merged from config sources
 	if other.ClusterName != "" {
 		c.ClusterName = other.ClusterName
 	}
@@ -94,7 +95,10 @@ func ValidateConfig(cfg *Config) error {
 	if cfg.ReleaseImage == "" {
 		return fmt.Errorf("release image is required")
 	}
-	// ClusterName and AwsRegion are now optional - they can be read from install-config.yaml
+	if cfg.ClusterName == "" {
+		return fmt.Errorf("cluster name is required (use --cluster-name flag)")
+	}
+	// AwsRegion is optional - can be read from install-config.yaml
 	return nil
 }
 
