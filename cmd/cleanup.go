@@ -29,27 +29,52 @@ var cleanupCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(cleanupCmd)
 
-	cleanupCmd.Flags().StringVar(&cleanupClusterName, "cluster-name", "", "Cluster/infrastructure name (required)")
-	cleanupCmd.Flags().StringVar(&cleanupAwsRegion, "region", "", "AWS region (required)")
+	cleanupCmd.Flags().StringVar(&cleanupClusterName, "cluster-name", "", "Cluster/infrastructure name (required unless using --from-artifacts)")
+	cleanupCmd.Flags().StringVar(&cleanupAwsRegion, "region", "", "AWS region (required unless using --from-artifacts)")
 	cleanupCmd.Flags().StringVar(&cleanupReleaseImage, "release-image", "", "OpenShift release image (optional - for infrastructure cleanup)")
-	cleanupCmd.Flags().StringVar(&cleanupFromArtifacts, "from-artifacts", "", "Path to cluster artifacts directory (e.g., artifacts/clusters/my-cluster) - deprecated")
+	cleanupCmd.Flags().StringVar(&cleanupFromArtifacts, "from-artifacts", "", "Path to cluster artifacts directory (e.g., artifacts/clusters/my-cluster)")
 }
 
 func runCleanup(cmd *cobra.Command, args []string) {
 	log := logger.New(logger.Level(getLogLevel()), nil)
 
-	// Validate required flags
-	if cleanupClusterName == "" || cleanupAwsRegion == "" {
-		log.Error("Both --cluster-name and --region are required")
-		log.Info("")
-		log.Info("Examples:")
-		log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
-		log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2 --release-image=quay.io/...")
-		os.Exit(1)
-	}
+	var clusterDir string
 
-	// Derive cluster directory path
-	clusterDir := util.GetClusterPath(cleanupClusterName, "")
+	// If --from-artifacts is provided, derive cluster name and region from metadata
+	if cleanupFromArtifacts != "" {
+		log.Info(fmt.Sprintf("Reading cluster information from %s", cleanupFromArtifacts))
+
+		// Read metadata.json to get cluster name and region
+		metadata, err := util.ReadClusterMetadata(cleanupFromArtifacts)
+		if err != nil {
+			log.Error(fmt.Sprintf("Failed to read cluster metadata: %v", err))
+			log.Error("Could not find cluster name and region in metadata.json")
+			log.Info("")
+			log.Info("Please provide values using flags instead:")
+			log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
+			os.Exit(1)
+		}
+
+		cleanupClusterName = metadata.ClusterName
+		cleanupAwsRegion = metadata.AWS.Region
+		clusterDir = cleanupFromArtifacts
+
+		log.Info(fmt.Sprintf("Cluster Name: %s", cleanupClusterName))
+		log.Info(fmt.Sprintf("AWS Region: %s", cleanupAwsRegion))
+	} else {
+		// Validate required flags if --from-artifacts is not provided
+		if cleanupClusterName == "" || cleanupAwsRegion == "" {
+			log.Error("Both --cluster-name and --region are required (or use --from-artifacts)")
+			log.Info("")
+			log.Info("Examples:")
+			log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
+			log.Info("  openshift-sts-installer cleanup --from-artifacts=artifacts/clusters/my-cluster")
+			os.Exit(1)
+		}
+
+		// Derive cluster directory path
+		clusterDir = util.GetClusterPath(cleanupClusterName, "")
+	}
 
 	// Load config to get AWS profile
 	cfg := &config.Config{}
@@ -137,14 +162,38 @@ func runCleanup(cmd *cobra.Command, args []string) {
 	// Step 2: Run ccoctl aws delete to clean up IAM roles and S3 bucket
 	log.StartStep("Cleaning up IAM roles and S3 bucket")
 
-	// Find ccoctl binary - look in shared artifacts if release image is provided
+	// Find ccoctl binary
 	ccoctlPath := "ccoctl"
+
+	// First, try to find it based on release image if provided
 	if cleanupReleaseImage != "" {
 		versionArch, err := util.ExtractVersionArch(cleanupReleaseImage)
 		if err == nil {
 			sharedCcoctl := util.GetSharedBinaryPath(versionArch, "ccoctl")
 			if util.FileExists(sharedCcoctl) {
 				ccoctlPath = sharedCcoctl
+				log.Debug(fmt.Sprintf("Using ccoctl from shared artifacts: %s", ccoctlPath))
+			}
+		}
+	}
+
+	// If not found and we don't have release image, try to find any ccoctl in shared artifacts
+	if ccoctlPath == "ccoctl" {
+		// Look for ccoctl in artifacts/shared/*/bin/ccoctl
+		sharedDir := "artifacts/shared"
+		if util.DirExists(sharedDir) {
+			entries, err := os.ReadDir(sharedDir)
+			if err == nil {
+				for _, entry := range entries {
+					if entry.IsDir() {
+						candidatePath := util.GetSharedBinaryPath(entry.Name(), "ccoctl")
+						if util.FileExists(candidatePath) {
+							ccoctlPath = candidatePath
+							log.Debug(fmt.Sprintf("Found ccoctl in shared artifacts: %s", ccoctlPath))
+							break
+						}
+					}
+				}
 			}
 		}
 	}

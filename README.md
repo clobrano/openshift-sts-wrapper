@@ -133,7 +133,20 @@ The cleanup command removes all AWS resources created during installation:
 - OpenShift infrastructure (EC2, VPCs, load balancers, DNS records) via `openshift-install destroy`
 - IAM roles and S3 bucket created by ccoctl
 
-**Both `--cluster-name` and `--region` are required flags:**
+**Option 1: Using --from-artifacts (reads cluster info from metadata.json):**
+
+```bash
+# Complete cleanup (infrastructure + IAM/S3)
+openshift-sts-installer cleanup \
+  --from-artifacts=artifacts/clusters/my-cluster \
+  --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
+
+# Minimal cleanup (only IAM roles and S3 bucket)
+openshift-sts-installer cleanup \
+  --from-artifacts=artifacts/clusters/my-cluster
+```
+
+**Option 2: Using explicit flags:**
 
 ```bash
 # Complete cleanup (infrastructure + IAM/S3)
@@ -142,7 +155,7 @@ openshift-sts-installer cleanup \
   --region=us-east-2 \
   --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
 
-# Minimal cleanup (only IAM roles and S3 bucket, no infrastructure/DNS cleanup)
+# Minimal cleanup (only IAM roles and S3 bucket)
 openshift-sts-installer cleanup \
   --cluster-name=my-cluster \
   --region=us-east-2
