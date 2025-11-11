@@ -94,8 +94,10 @@ privateBucket: false
 awsRegion: us-east-2
 baseDomain: example.com
 sshKeyPath: /home/user/.ssh/id_rsa.pub
+instanceType: m5.4xlarge
 
-# Note: clusterName CANNOT be set in config files - must use --cluster-name flag
+# Note: Runtime flags (clusterName, startFromStep, confirmEachStep)
+# cannot be set in config files - must use CLI flags
 ```
 
 Then run:
@@ -169,7 +171,7 @@ openshift-sts-installer cleanup \
 
 ## Environment Variables
 
-You can also configure via environment variables (except cluster name):
+You can also configure via environment variables (except runtime flags):
 
 ```bash
 export OPENSHIFT_STS_RELEASE_IMAGE=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
@@ -177,12 +179,13 @@ export OPENSHIFT_STS_AWS_REGION=us-east-2
 export OPENSHIFT_STS_AWS_PROFILE=default
 export OPENSHIFT_STS_PULL_SECRET_PATH=./pull-secret.json
 export OPENSHIFT_STS_PRIVATE_BUCKET=true
+export OPENSHIFT_STS_INSTANCE_TYPE=m5.4xlarge
 
-# Cluster name must still be provided via flag
+# Runtime flags must be provided via CLI flags
 openshift-sts-installer install --cluster-name=my-cluster
 ```
 
-**Note:** `OPENSHIFT_STS_CLUSTER_NAME` environment variable is **not supported**. You must use the `--cluster-name` flag.
+**Note:** Runtime flags (`--cluster-name`, `--start-from-step`, `--confirm-each-step`) cannot be set via environment variables or config files. They must use CLI flags.
 
 ## Configuration Priority
 

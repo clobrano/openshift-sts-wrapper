@@ -16,8 +16,8 @@ type Config struct {
 	AwsProfile      string `yaml:"awsProfile"`
 	PullSecretPath  string `yaml:"pullSecretPath"`
 	PrivateBucket   bool   `yaml:"privateBucket"`
-	StartFromStep   int    `yaml:"startFromStep"`
-	ConfirmEachStep bool   `yaml:"confirmEachStep"`
+	StartFromStep   int    `yaml:"-"` // Runtime flag only - not loaded from config file
+	ConfirmEachStep bool   `yaml:"-"` // Runtime flag only - not loaded from config file
 	InstanceType    string `yaml:"instanceType"`
 }
 
@@ -41,14 +41,14 @@ func LoadFromEnv() *Config {
 	return &Config{
 		ReleaseImage: os.Getenv("OPENSHIFT_STS_RELEASE_IMAGE"),
 		// ClusterName is not loaded from env - must be provided via CLI flag
-		AwsRegion:       os.Getenv("OPENSHIFT_STS_AWS_REGION"),
-		BaseDomain:      os.Getenv("OPENSHIFT_STS_BASE_DOMAIN"),
-		SSHKeyPath:      os.Getenv("OPENSHIFT_STS_SSH_KEY_PATH"),
-		AwsProfile:      os.Getenv("OPENSHIFT_STS_AWS_PROFILE"),
-		PullSecretPath:  os.Getenv("OPENSHIFT_STS_PULL_SECRET_PATH"),
-		PrivateBucket:   os.Getenv("OPENSHIFT_STS_PRIVATE_BUCKET") == "true",
-		ConfirmEachStep: os.Getenv("OPENSHIFT_STS_CONFIRM_EACH_STEP") == "true",
-		InstanceType:    os.Getenv("OPENSHIFT_STS_INSTANCE_TYPE"),
+		AwsRegion:      os.Getenv("OPENSHIFT_STS_AWS_REGION"),
+		BaseDomain:     os.Getenv("OPENSHIFT_STS_BASE_DOMAIN"),
+		SSHKeyPath:     os.Getenv("OPENSHIFT_STS_SSH_KEY_PATH"),
+		AwsProfile:     os.Getenv("OPENSHIFT_STS_AWS_PROFILE"),
+		PullSecretPath: os.Getenv("OPENSHIFT_STS_PULL_SECRET_PATH"),
+		PrivateBucket:  os.Getenv("OPENSHIFT_STS_PRIVATE_BUCKET") == "true",
+		// StartFromStep and ConfirmEachStep are runtime flags only
+		InstanceType: os.Getenv("OPENSHIFT_STS_INSTANCE_TYPE"),
 	}
 }
 
@@ -79,6 +79,7 @@ func (c *Config) Merge(other *Config) {
 	if other.PrivateBucket {
 		c.PrivateBucket = other.PrivateBucket
 	}
+	// StartFromStep and ConfirmEachStep are explicitly set from CLI flags only
 	if other.StartFromStep > 0 {
 		c.StartFromStep = other.StartFromStep
 	}
