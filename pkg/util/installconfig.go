@@ -198,3 +198,48 @@ func ReadClusterMetadata(artifactsDir string) (*ClusterMetadata, error) {
 
 	return &metadata, nil
 }
+
+// InstallMetadata contains information about the installation for cleanup purposes
+type InstallMetadata struct {
+	ReleaseImage string `json:"releaseImage"`
+}
+
+// SaveInstallMetadata saves installation metadata to the cluster directory
+func SaveInstallMetadata(clusterDir string, releaseImage string) error {
+	metadata := InstallMetadata{
+		ReleaseImage: releaseImage,
+	}
+
+	data, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal install metadata: %w", err)
+	}
+
+	metadataPath := filepath.Join(clusterDir, "install-metadata.json")
+	if err := os.WriteFile(metadataPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write install metadata: %w", err)
+	}
+
+	return nil
+}
+
+// ReadInstallMetadata reads installation metadata from the cluster directory
+func ReadInstallMetadata(clusterDir string) (*InstallMetadata, error) {
+	metadataPath := filepath.Join(clusterDir, "install-metadata.json")
+
+	if !FileExists(metadataPath) {
+		return nil, fmt.Errorf("install-metadata.json not found at %s", metadataPath)
+	}
+
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read install-metadata.json: %w", err)
+	}
+
+	var metadata InstallMetadata
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to parse install-metadata.json: %w", err)
+	}
+
+	return &metadata, nil
+}

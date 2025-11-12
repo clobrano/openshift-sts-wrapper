@@ -178,6 +178,16 @@ func runInstall(cmd *cobra.Command, args []string) {
 			log.CompleteStep(fmt.Sprintf("[Step %d] %s", stepDef.num, step.Name()))
 			summary.AddSuccess(fmt.Sprintf("[Step %d] %s", stepDef.num, step.Name()))
 
+			// After Step 1, save installation metadata for cleanup purposes
+			if stepDef.num == 1 {
+				clusterDir := util.GetClusterPath(cfg.ClusterName, "")
+				if err := util.SaveInstallMetadata(clusterDir, cfg.ReleaseImage); err != nil {
+					log.Debug(fmt.Sprintf("Could not save install metadata: %v", err))
+				} else {
+					log.Debug(fmt.Sprintf("Saved installation metadata to %s/install-metadata.json", clusterDir))
+				}
+			}
+
 			// After Step 5, backup install-config.yaml before Step 6 consumes it
 			if stepDef.num == 5 {
 				versionArch, err := util.ExtractVersionArch(cfg.ReleaseImage)

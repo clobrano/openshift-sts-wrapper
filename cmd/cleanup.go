@@ -61,6 +61,17 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 		log.Info(fmt.Sprintf("Cluster Name: %s", cleanupClusterName))
 		log.Info(fmt.Sprintf("AWS Region: %s", cleanupAwsRegion))
+
+		// Try to load release image from install-metadata.json if --release-image not provided
+		if cleanupReleaseImage == "" {
+			installMetadata, err := util.ReadInstallMetadata(cleanupFromArtifacts)
+			if err == nil && installMetadata.ReleaseImage != "" {
+				cleanupReleaseImage = installMetadata.ReleaseImage
+				log.Info(fmt.Sprintf("Detected Release Image: %s", cleanupReleaseImage))
+			} else {
+				log.Debug(fmt.Sprintf("Could not read install metadata: %v", err))
+			}
+		}
 	} else {
 		// Validate required flags if --from-artifacts is not provided
 		if cleanupClusterName == "" || cleanupAwsRegion == "" {
@@ -226,4 +237,21 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 	log.CompleteStep("Cleanup IAM/S3")
 	log.Info("All AWS resources have been deleted.")
+
+	// Prompt user to remove cluster artifacts directory
+	if util.DirExists(clusterDir) {
+		fmt.Printf("\nDo you want to remove the cluster artifacts directory at %s? (y/n): ", clusterDir)
+		response, _ := reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+
+		if response == "y" || response == "yes" {
+			if err := os.RemoveAll(clusterDir); err != nil {
+				log.Error(fmt.Sprintf("Failed to remove cluster directory: %v", err))
+			} else {
+				log.Info(fmt.Sprintf("Removed cluster directory: %s", clusterDir))
+			}
+		} else {
+			log.Info(fmt.Sprintf("Cluster artifacts preserved at: %s", clusterDir))
+		}
+	}
 }
