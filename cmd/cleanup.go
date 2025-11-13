@@ -41,7 +41,7 @@ func runCleanup(cmd *cobra.Command, args []string) {
 		log.Error("--cluster-name is required")
 		log.Info("")
 		log.Info("Example:")
-		log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster")
+		log.Info("  openshift-sts-wrapper cleanup --cluster-name=my-cluster")
 		os.Exit(1)
 	}
 
@@ -67,7 +67,7 @@ func runCleanup(cmd *cobra.Command, args []string) {
 		log.Info("")
 		log.Info("Either provide --region flag or ensure metadata.json exists in cluster artifacts")
 		log.Info("Example:")
-		log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
+		log.Info("  openshift-sts-wrapper cleanup --cluster-name=my-cluster --region=us-east-2")
 		os.Exit(1)
 	}
 
@@ -88,7 +88,7 @@ func runCleanup(cmd *cobra.Command, args []string) {
 	cfg := &config.Config{}
 	configFile := cfgFile
 	if configFile == "" {
-		configFile = "openshift-sts-installer.yaml"
+		configFile = "openshift-sts-wrapper.yaml"
 	}
 	if util.FileExists(configFile) {
 		fileCfg, err := config.LoadFromFile(configFile)

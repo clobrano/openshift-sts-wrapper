@@ -9,7 +9,7 @@ import (
 func TestLoadConfigFromFile(t *testing.T) {
 	// Create a temporary config file
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "openshift-sts-installer.yaml")
+	configPath := filepath.Join(tmpDir, "openshift-sts-wrapper.yaml")
 	configContent := `releaseImage: quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
 awsRegion: us-east-2
 pullSecretPath: ./pull-secret.json

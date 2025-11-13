@@ -156,10 +156,10 @@ The tool should follow standard CLI conventions:
 
 ```bash
 # Full installation with interactive prompts
-$ openshift-sts-installer install
+$ openshift-sts-wrapper install
 
 # Full installation with flags
-$ openshift-sts-installer install \
+$ openshift-sts-wrapper install \
     --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64 \
     --cluster-name=my-cluster \
     --region=us-east-2 \
@@ -167,23 +167,23 @@ $ openshift-sts-installer install \
     --private-bucket
 
 # Run individual steps
-$ openshift-sts-installer extract --release-image=...
-$ openshift-sts-installer create-manifests
-$ openshift-sts-installer create-aws-resources --private-bucket
-$ openshift-sts-installer deploy
+$ openshift-sts-wrapper extract --release-image=...
+$ openshift-sts-wrapper create-manifests
+$ openshift-sts-wrapper create-aws-resources --private-bucket
+$ openshift-sts-wrapper deploy
 
-# With config file (looks for openshift-sts-installer.yaml by default)
-$ openshift-sts-installer install
+# With config file (looks for openshift-sts-wrapper.yaml by default)
+$ openshift-sts-wrapper install
 # Or specify custom config file
-$ openshift-sts-installer install --config=my-config.yaml
+$ openshift-sts-wrapper install --config=my-config.yaml
 
 # Cleanup after failed installation
-$ openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2
+$ openshift-sts-wrapper cleanup --cluster-name=my-cluster --region=us-east-2
 ```
 
 ### Config File Format
 
-The tool should look for a config file named `openshift-sts-installer.yaml` (not hidden) in the current directory. The format should be:
+The tool should look for a config file named `openshift-sts-wrapper.yaml` (not hidden) in the current directory. The format should be:
 
 ```yaml
 releaseImage: quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
@@ -198,7 +198,7 @@ Users can also specify a custom config file path using `--config` flag.
 
 ### User Experience Flow
 
-1. User runs `openshift-sts-installer install`
+1. User runs `openshift-sts-wrapper install`
 2. Tool validates prerequisites (oc available, etc.)
 3. Tool checks for required inputs (prompts if missing)
 4. Tool checks for pull-secret, opens browser if needed, waits for user
@@ -236,7 +236,7 @@ The tool should use a working directory structure that organizes artifacts by re
 │   └── tls/
 ├── manifests/         # Installation manifests
 ├── pull-secret.json   # User-provided pull-secret
-└── openshift-sts-installer.yaml # Optional config file (not hidden)
+└── openshift-sts-wrapper.yaml # Optional config file (not hidden)
 ```
 
 **Note**:
@@ -290,7 +290,7 @@ Based on requirements clarification, the following decisions have been made:
 
 1. **Binary Extraction Location**: Extracted binaries (`openshift-install`, `ccoctl`) are placed in `artifacts/${RHOCP_version}-${Arch}/bin/` directory (version-specific) in the current working directory
 2. **Validation Depth**: The tool does NOT validate AWS permissions before starting - it relies on AWS errors during execution
-3. **Config File Location**: The tool looks for `openshift-sts-installer.yaml` (not hidden) in the current directory by default
+3. **Config File Location**: The tool looks for `openshift-sts-wrapper.yaml` (not hidden) in the current directory by default
 4. **Cleanup on Failure**: On failure, the tool leaves partial AWS resources for manual inspection. Users must manually run the `cleanup` command to remove them.
 5. **Multiple Cluster Support**: Not supported - the tool is designed for single-cluster-at-a-time installation
 

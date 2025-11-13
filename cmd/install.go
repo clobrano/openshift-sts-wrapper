@@ -93,7 +93,7 @@ func runInstall(cmd *cobra.Command, args []string) {
 		log.Info("Options:")
 		log.Info("  1. Use a different cluster name: --cluster-name=<new-name>")
 		log.Info("  2. Clean up the existing cluster first:")
-		log.Info("     openshift-sts-installer cleanup --help")
+		log.Info("     openshift-sts-wrapper cleanup --help")
 		os.Exit(1)
 	}
 
@@ -224,7 +224,7 @@ func loadConfig(log *logger.Logger) *config.Config {
 	// 2. Load from file
 	configFile := cfgFile
 	if configFile == "" {
-		configFile = "openshift-sts-installer.yaml"
+		configFile = "openshift-sts-wrapper.yaml"
 	}
 	if util.FileExists(configFile) {
 		fileCfg, err := config.LoadFromFile(configFile)

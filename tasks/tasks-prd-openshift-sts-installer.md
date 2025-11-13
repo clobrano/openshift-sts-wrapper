@@ -41,7 +41,7 @@
 - `Makefile` ✅ - Build targets (build, test, install, clean)
 - `.gitignore` ✅ - Ignore artifacts/, _output/, binaries, etc.
 - `README.md` ✅ - Comprehensive usage documentation and examples
-- `openshift-sts-installer.yaml.example` ✅ - Example configuration file
+- `openshift-sts-wrapper.yaml.example` ✅ - Example configuration file
 
 ### Notes
 
@@ -64,7 +64,7 @@
 - [x] 2.0 Configuration Management System
   - [x] 2.1 Define `Config` struct in `pkg/config/config.go` with fields: ReleaseImage, ClusterName, AwsRegion, PullSecretPath, PrivateBucket, OutputDir, StartFromStep
   - [x] 2.2 Implement configuration loading with priority: flags > config file > env vars
-  - [x] 2.3 Implement `LoadFromFile()` to read `openshift-sts-installer.yaml` from current directory or custom path
+  - [x] 2.3 Implement `LoadFromFile()` to read `openshift-sts-wrapper.yaml` from current directory or custom path
   - [x] 2.4 Implement `LoadFromEnv()` to read environment variables (e.g., `OPENSHIFT_STS_RELEASE_IMAGE`)
   - [x] 2.5 Implement config merging logic
   - [x] 2.6 Add validation in `pkg/config/validate.go`: validate release image, cluster name, region, pull-secret JSON format
@@ -151,11 +151,11 @@
   - [x] 10.5 Write unit tests for all 10 installation steps
   - [x] 10.6 Create `Makefile` with targets: `build`, `test`, `install`, `clean`, `fmt`, `vet`
   - [x] 10.7 Update `README.md` with installation instructions, usage examples, configuration file format
-  - [x] 10.8 Add example `openshift-sts-installer.yaml.example` configuration file to repository
+  - [x] 10.8 Add example `openshift-sts-wrapper.yaml.example` configuration file to repository
   - [x] 10.9 Document environment variables in README (e.g., `OPENSHIFT_STS_RELEASE_IMAGE`)
   - [x] 10.10 Add troubleshooting section to README with common issues and solutions
   - [x] 10.11 Run `go fmt ./...` and `go vet ./...` to ensure code quality
-  - [x] 10.12 Build the binary with `go build -o openshift-sts-installer` and test manually
+  - [x] 10.12 Build the binary with `go build -o openshift-sts-wrapper` and test manually
 
 ## Test Summary
 

@@ -1,5 +1,5 @@
 # Binaries
-openshift-sts-installer
+openshift-sts-wrapper
 *.exe
 *.exe~
 *.dll
@@ -22,7 +22,7 @@ install-config.yaml
 .openshift_install.log
 
 # Config files (user-specific)
-openshift-sts-installer.yaml
+openshift-sts-wrapper.yaml
 
 # IDE
 .idea/

@@ -14,7 +14,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "openshift-sts-installer",
+	Use:   "openshift-sts-wrapper",
 	Short: "OpenShift STS Installation Wrapper",
 	Long: `A CLI tool that automates the installation of OpenShift clusters
 with AWS Security Token Service (STS) authentication.`,
@@ -26,7 +26,7 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./openshift-sts-installer.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is ./openshift-sts-wrapper.yaml)")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "q", "q", false, "quiet output (errors only)")
 }

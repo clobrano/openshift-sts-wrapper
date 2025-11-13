@@ -62,7 +62,7 @@ If credentials cannot be read from the profile, the tool will proceed without se
 ### Full Installation
 
 ```bash
-openshift-sts-installer install \
+openshift-sts-wrapper install \
   --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64 \
   --cluster-name=my-cluster \
   --region=us-east-2 \
@@ -73,7 +73,7 @@ openshift-sts-installer install \
 ### With Private S3 Bucket
 
 ```bash
-openshift-sts-installer install \
+openshift-sts-wrapper install \
   --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64 \
   --cluster-name=my-cluster \
   --region=us-east-2 \
@@ -84,7 +84,7 @@ openshift-sts-installer install \
 
 ### Using a Configuration File
 
-Create `openshift-sts-installer.yaml`:
+Create `openshift-sts-wrapper.yaml`:
 
 ```yaml
 releaseImage: quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
@@ -103,7 +103,7 @@ instanceType: m5.4xlarge
 Then run:
 
 ```bash
-openshift-sts-installer install --cluster-name=my-cluster
+openshift-sts-wrapper install --cluster-name=my-cluster
 ```
 
 **Important:** The `--cluster-name` flag is always required, even when using a config file.
@@ -113,7 +113,7 @@ openshift-sts-installer install --cluster-name=my-cluster
 If installation was interrupted:
 
 ```bash
-openshift-sts-installer install --cluster-name=my-cluster --start-from-step=6
+openshift-sts-wrapper install --cluster-name=my-cluster --start-from-step=6
 ```
 
 Step numbers:
@@ -138,7 +138,7 @@ The cleanup command removes all AWS resources created during installation:
 **Basic usage (auto-detects region and release image from metadata):**
 
 ```bash
-openshift-sts-installer cleanup --cluster-name=my-cluster
+openshift-sts-wrapper cleanup --cluster-name=my-cluster
 ```
 
 The cleanup command automatically:
@@ -151,10 +151,10 @@ The cleanup command automatically:
 
 ```bash
 # Specify region explicitly
-openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2
+openshift-sts-wrapper cleanup --cluster-name=my-cluster --region=us-east-2
 
 # Specify release image explicitly for complete cleanup
-openshift-sts-installer cleanup \
+openshift-sts-wrapper cleanup \
   --cluster-name=my-cluster \
   --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
 ```
@@ -178,7 +178,7 @@ export OPENSHIFT_STS_PRIVATE_BUCKET=true
 export OPENSHIFT_STS_INSTANCE_TYPE=m5.4xlarge
 
 # Runtime flags must be provided via CLI flags
-openshift-sts-installer install --cluster-name=my-cluster
+openshift-sts-wrapper install --cluster-name=my-cluster
 ```
 
 **Note:** Runtime flags (`--cluster-name`, `--start-from-step`, `--confirm-each-step`) cannot be set via environment variables or config files. They must use CLI flags.
@@ -226,10 +226,10 @@ The tool creates the following directory structure:
 
 ```bash
 # Quiet mode (errors only)
-openshift-sts-installer install --quiet
+openshift-sts-wrapper install --quiet
 
 # Verbose mode (detailed output)
-openshift-sts-installer install --verbose
+openshift-sts-wrapper install --verbose
 ```
 
 ## Development

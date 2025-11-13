@@ -1,6 +1,6 @@
 .PHONY: build test clean install fmt vet
 
-BINARY_NAME=openshift-sts-installer
+BINARY_NAME=openshift-sts-wrapper
 INSTALL_PATH=/usr/local/bin
 
 build:
