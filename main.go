@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/cmd"
+	"github.com/clobrano/openshift-sts-wrapper/cmd"
 )
 
 func main() {

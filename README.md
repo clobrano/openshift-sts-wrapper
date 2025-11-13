@@ -17,8 +17,8 @@ A CLI tool that automates the installation of OpenShift clusters with AWS Securi
 ### From Source
 
 ```bash
-git clone https://gitlab.cee.redhat.com/clobrano/ccoctl-sso.git
-cd ccoctl-sso
+git clone https://github.com/clobrano/openshift-sts-wrapper.git
+cd openshift-sts-wrapper
 make build
 sudo make install
 ```

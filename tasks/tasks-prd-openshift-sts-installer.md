@@ -54,7 +54,7 @@
 ## Tasks
 
 - [x] 1.0 Project Setup and Foundation
-  - [x] 1.1 Initialize Go module with `go mod init github.com/clobrano/ccoctl-sso`
+  - [x] 1.1 Initialize Go module with `go mod init github.com/clobrano/openshift-sts-wrapper`
   - [x] 1.2 Add dependencies: `go get github.com/spf13/cobra github.com/spf13/viper gopkg.in/yaml.v3`
   - [x] 1.3 Create directory structure: `cmd/`, `pkg/config/`, `pkg/steps/`, `pkg/util/`, `pkg/logger/`, `pkg/errors/`
   - [x] 1.4 Create `main.go` as entry point that calls `cmd.Execute()`

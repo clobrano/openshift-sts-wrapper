@@ -1,8 +1,8 @@
 package steps
 
 import (
-	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/config"
-	"gitlab.cee.redhat.com/clobrano/ccoctl-sso/pkg/util"
+	"github.com/clobrano/openshift-sts-wrapper/pkg/config"
+	"github.com/clobrano/openshift-sts-wrapper/pkg/util"
 )
 
 type Detector struct {

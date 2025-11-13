@@ -1,4 +1,4 @@
-module gitlab.cee.redhat.com/clobrano/ccoctl-sso
+module github.com/clobrano/openshift-sts-wrapper
 
 go 1.25.1
 
