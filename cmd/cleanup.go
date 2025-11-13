@@ -13,10 +13,9 @@ import (
 )
 
 var (
-	cleanupClusterName   string
-	cleanupAwsRegion     string
-	cleanupReleaseImage  string
-	cleanupFromArtifacts string
+	cleanupClusterName  string
+	cleanupAwsRegion    string
+	cleanupReleaseImage string
 )
 
 var cleanupCmd = &cobra.Command{
@@ -29,62 +28,60 @@ var cleanupCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(cleanupCmd)
 
-	cleanupCmd.Flags().StringVar(&cleanupClusterName, "cluster-name", "", "Cluster/infrastructure name (required unless using --from-artifacts)")
-	cleanupCmd.Flags().StringVar(&cleanupAwsRegion, "region", "", "AWS region (required unless using --from-artifacts)")
-	cleanupCmd.Flags().StringVar(&cleanupReleaseImage, "release-image", "", "OpenShift release image (optional - for infrastructure cleanup)")
-	cleanupCmd.Flags().StringVar(&cleanupFromArtifacts, "from-artifacts", "", "Path to cluster artifacts directory (e.g., artifacts/clusters/my-cluster)")
+	cleanupCmd.Flags().StringVar(&cleanupClusterName, "cluster-name", "", "Cluster/infrastructure name (required)")
+	cleanupCmd.Flags().StringVar(&cleanupAwsRegion, "region", "", "AWS region (optional - will be read from metadata.json if not provided)")
+	cleanupCmd.Flags().StringVar(&cleanupReleaseImage, "release-image", "", "OpenShift release image (optional - will be read from install-metadata.json if not provided)")
 }
 
 func runCleanup(cmd *cobra.Command, args []string) {
 	log := logger.New(logger.Level(getLogLevel()), nil)
 
-	var clusterDir string
+	// Validate that cluster name is provided
+	if cleanupClusterName == "" {
+		log.Error("--cluster-name is required")
+		log.Info("")
+		log.Info("Example:")
+		log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster")
+		os.Exit(1)
+	}
 
-	// If --from-artifacts is provided, derive cluster name and region from metadata
-	if cleanupFromArtifacts != "" {
-		log.Info(fmt.Sprintf("Reading cluster information from %s", cleanupFromArtifacts))
+	// Construct cluster directory path from cluster name
+	clusterDir := util.GetClusterPath(cleanupClusterName, "")
 
-		// Read metadata.json to get cluster name and region
-		metadata, err := util.ReadClusterMetadata(cleanupFromArtifacts)
-		if err != nil {
-			log.Error(fmt.Sprintf("Failed to read cluster metadata: %v", err))
-			log.Error("Could not find cluster name and region in metadata.json")
-			log.Info("")
-			log.Info("Please provide values using flags instead:")
-			log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
-			os.Exit(1)
+	log.Info(fmt.Sprintf("Cluster Name: %s", cleanupClusterName))
+
+	// Try to read region from metadata.json if not provided via flag
+	if cleanupAwsRegion == "" {
+		metadata, err := util.ReadClusterMetadata(clusterDir)
+		if err == nil && metadata.AWS.Region != "" {
+			cleanupAwsRegion = metadata.AWS.Region
+			log.Info(fmt.Sprintf("Detected AWS Region: %s", cleanupAwsRegion))
+		} else {
+			log.Debug(fmt.Sprintf("Could not read region from metadata: %v", err))
 		}
+	}
 
-		cleanupClusterName = metadata.ClusterName
-		cleanupAwsRegion = metadata.AWS.Region
-		clusterDir = cleanupFromArtifacts
+	// Validate that we have a region (either from flag or metadata)
+	if cleanupAwsRegion == "" {
+		log.Error("AWS region is required")
+		log.Info("")
+		log.Info("Either provide --region flag or ensure metadata.json exists in cluster artifacts")
+		log.Info("Example:")
+		log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
+		os.Exit(1)
+	}
 
-		log.Info(fmt.Sprintf("Cluster Name: %s", cleanupClusterName))
-		log.Info(fmt.Sprintf("AWS Region: %s", cleanupAwsRegion))
+	log.Info(fmt.Sprintf("AWS Region: %s", cleanupAwsRegion))
 
-		// Try to load release image from install-metadata.json if --release-image not provided
-		if cleanupReleaseImage == "" {
-			installMetadata, err := util.ReadInstallMetadata(cleanupFromArtifacts)
-			if err == nil && installMetadata.ReleaseImage != "" {
-				cleanupReleaseImage = installMetadata.ReleaseImage
-				log.Info(fmt.Sprintf("Detected Release Image: %s", cleanupReleaseImage))
-			} else {
-				log.Debug(fmt.Sprintf("Could not read install metadata: %v", err))
-			}
+	// Try to load release image from install-metadata.json if not provided via flag
+	if cleanupReleaseImage == "" {
+		installMetadata, err := util.ReadInstallMetadata(clusterDir)
+		if err == nil && installMetadata.ReleaseImage != "" {
+			cleanupReleaseImage = installMetadata.ReleaseImage
+			log.Info(fmt.Sprintf("Detected Release Image: %s", cleanupReleaseImage))
+		} else {
+			log.Debug(fmt.Sprintf("Could not read install metadata: %v", err))
 		}
-	} else {
-		// Validate required flags if --from-artifacts is not provided
-		if cleanupClusterName == "" || cleanupAwsRegion == "" {
-			log.Error("Both --cluster-name and --region are required (or use --from-artifacts)")
-			log.Info("")
-			log.Info("Examples:")
-			log.Info("  openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2")
-			log.Info("  openshift-sts-installer cleanup --from-artifacts=artifacts/clusters/my-cluster")
-			os.Exit(1)
-		}
-
-		// Derive cluster directory path
-		clusterDir = util.GetClusterPath(cleanupClusterName, "")
 	}
 
 	// Load config to get AWS profile

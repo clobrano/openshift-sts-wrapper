@@ -135,39 +135,35 @@ The cleanup command removes all AWS resources created during installation:
 - OpenShift infrastructure (EC2, VPCs, load balancers, DNS records) via `openshift-install destroy`
 - IAM roles and S3 bucket created by ccoctl
 
-**Option 1: Using --from-artifacts (reads cluster info from metadata.json):**
+**Basic usage (auto-detects region and release image from metadata):**
 
 ```bash
-# Complete cleanup (infrastructure + IAM/S3)
-openshift-sts-installer cleanup \
-  --from-artifacts=artifacts/clusters/my-cluster \
-  --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
-
-# Minimal cleanup (only IAM roles and S3 bucket)
-openshift-sts-installer cleanup \
-  --from-artifacts=artifacts/clusters/my-cluster
+openshift-sts-installer cleanup --cluster-name=my-cluster
 ```
 
-**Option 2: Using explicit flags:**
+The cleanup command automatically:
+- Reads AWS region from `metadata.json` (if not provided via `--region`)
+- Reads release image from `install-metadata.json` (if not provided via `--release-image`)
+- Performs complete cleanup if release image is found
+- Prompts to remove cluster artifacts directory after cleanup
+
+**Override auto-detection with explicit flags:**
 
 ```bash
-# Complete cleanup (infrastructure + IAM/S3)
-openshift-sts-installer cleanup \
-  --cluster-name=my-cluster \
-  --region=us-east-2 \
-  --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
+# Specify region explicitly
+openshift-sts-installer cleanup --cluster-name=my-cluster --region=us-east-2
 
-# Minimal cleanup (only IAM roles and S3 bucket)
+# Specify release image explicitly for complete cleanup
 openshift-sts-installer cleanup \
   --cluster-name=my-cluster \
-  --region=us-east-2
+  --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64
 ```
 
 **Note:**
-- If you provide `--release-image`, the cleanup will:
+- If release image is available (auto-detected or provided), cleanup will:
   1. Run `openshift-install destroy cluster` (if state file exists) to remove all infrastructure and DNS records
   2. Run `ccoctl aws delete` to remove IAM roles and S3 bucket
-- Without `--release-image`, only step 2 runs, leaving infrastructure and DNS records orphaned
+- Without release image, only step 2 runs (IAM/S3 cleanup), leaving infrastructure and DNS records orphaned
 
 ## Environment Variables
 
