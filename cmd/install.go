@@ -97,6 +97,62 @@ func runInstall(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Check configuration and get user's decision on interactive mode
+	// Only do this if we'll be executing Step 4 (not resuming from a later step)
+	if cfg.StartFromStep <= 4 {
+		complete, missing := cfg.HasCompleteInstallConfigData()
+
+		if complete {
+			// Show saved configuration
+			log.Info("")
+			log.Info("Found saved configuration:")
+			log.Info(fmt.Sprintf("  Cluster Name: %s", cfg.ClusterName))
+			log.Info(fmt.Sprintf("  AWS Region: %s", cfg.AwsRegion))
+			log.Info(fmt.Sprintf("  Base Domain: %s", cfg.BaseDomain))
+			log.Info(fmt.Sprintf("  SSH Key: %s", cfg.SSHKeyPath))
+			log.Info(fmt.Sprintf("  Pull Secret: %s", cfg.PullSecretPath))
+			log.Info("")
+
+			// Prompt to reuse configuration
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("Reuse this configuration? [y/N]: ")
+			response, _ := reader.ReadString('\n')
+			response = strings.TrimSpace(strings.ToLower(response))
+
+			if response == "y" || response == "yes" {
+				cfg.UseInteractiveMode = false
+				log.Info("✓ Will use saved configuration at Step 4")
+			} else {
+				cfg.UseInteractiveMode = true
+				log.Info("Will run interactive mode at Step 4")
+			}
+			log.Info("")
+		} else {
+			// Configuration incomplete - must use interactive mode
+			log.Info("")
+			log.Info("⚠  Missing configuration fields:")
+			for _, field := range missing {
+				log.Info(fmt.Sprintf("  - %s", field))
+			}
+			log.Info("")
+			log.Info("Will run interactive mode at Step 4")
+			cfg.UseInteractiveMode = true
+			log.Info("")
+
+			// Prompt user to confirm continuation
+			reader := bufio.NewReader(os.Stdin)
+			fmt.Print("Continue? [Y/n]: ")
+			response, _ := reader.ReadString('\n')
+			response = strings.TrimSpace(strings.ToLower(response))
+
+			if response == "n" || response == "no" {
+				log.Info("Installation cancelled.")
+				os.Exit(0)
+			}
+			log.Info("")
+		}
+	}
+
 	// Create command executor
 	executor := &util.RealExecutor{}
 

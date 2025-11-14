@@ -196,59 +196,49 @@ func (s *Step4CreateConfig) Execute() error {
 
 	installConfigPath := util.GetInstallConfigPath(s.versionArch, s.cfg.ClusterName)
 
-	// Check if we have complete saved configuration
-	complete, missing := s.cfg.HasCompleteInstallConfigData()
-	if complete {
+	// Check if user decided to use interactive mode (decision made at startup)
+	if !s.cfg.UseInteractiveMode {
+		// User chose to use saved configuration - generate install-config.yaml
+		s.log.Debug("Using saved configuration (decision from startup)")
+
 		// Read pull secret from file
 		pullSecretContent, err := os.ReadFile(s.cfg.PullSecretPath)
 		if err != nil {
-			s.log.Info(fmt.Sprintf("Cannot read pull secret file: %v, running interactive mode", err))
-		} else {
-			// Read SSH key from file
-			sshKeyContent, err := os.ReadFile(s.cfg.SSHKeyPath)
-			if err != nil {
-				s.log.Info(fmt.Sprintf("Cannot read SSH key file: %v, running interactive mode", err))
-			} else {
-				// Display saved configuration to user
-				s.log.Info("Found saved configuration:")
-				s.log.Info(fmt.Sprintf("  Cluster Name: %s", s.cfg.ClusterName))
-				s.log.Info(fmt.Sprintf("  AWS Region: %s", s.cfg.AwsRegion))
-				s.log.Info(fmt.Sprintf("  Base Domain: %s", s.cfg.BaseDomain))
-				s.log.Info(fmt.Sprintf("  SSH Key: %s", s.cfg.SSHKeyPath))
-				s.log.Info(fmt.Sprintf("  Pull Secret: %s", s.cfg.PullSecretPath))
-
-				// Ask user for confirmation
-				if confirm(s.log, "Reuse this configuration") {
-					s.log.Info("Generating install-config.yaml from saved configuration...")
-
-					// Compact the pull secret JSON to single line
-					compactPullSecret, err := compactJSON(pullSecretContent)
-					if err != nil {
-						return fmt.Errorf("failed to compact pull secret JSON: %w", err)
-					}
-
-					err = util.GenerateInstallConfig(
-						installConfigPath,
-						s.cfg.ClusterName,
-						s.cfg.BaseDomain,
-						s.cfg.AwsRegion,
-						strings.TrimSpace(string(sshKeyContent)),
-						compactPullSecret,
-						s.cfg.InstanceType,
-					)
-					if err != nil {
-						return fmt.Errorf("failed to generate install-config.yaml: %w", err)
-					}
-					s.log.Info("✓ install-config.yaml generated from saved configuration")
-					return nil
-				}
-				s.log.Info("User chose to enter configuration interactively")
-			}
+			return fmt.Errorf("cannot read pull secret file: %w", err)
 		}
-	} else {
-		// Log which fields are missing
-		s.log.Info(fmt.Sprintf("Saved configuration is incomplete, running interactive mode (missing: %s)", strings.Join(missing, ", ")))
+
+		// Read SSH key from file
+		sshKeyContent, err := os.ReadFile(s.cfg.SSHKeyPath)
+		if err != nil {
+			return fmt.Errorf("cannot read SSH key file: %w", err)
+		}
+
+		s.log.Info("Generating install-config.yaml from saved configuration...")
+
+		// Compact the pull secret JSON to single line
+		compactPullSecret, err := compactJSON(pullSecretContent)
+		if err != nil {
+			return fmt.Errorf("failed to compact pull secret JSON: %w", err)
+		}
+
+		err = util.GenerateInstallConfig(
+			installConfigPath,
+			s.cfg.ClusterName,
+			s.cfg.BaseDomain,
+			s.cfg.AwsRegion,
+			strings.TrimSpace(string(sshKeyContent)),
+			compactPullSecret,
+			s.cfg.InstanceType,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to generate install-config.yaml: %w", err)
+		}
+		s.log.Info("✓ install-config.yaml generated from saved configuration")
+		return nil
 	}
+
+	// User chose interactive mode (or config was incomplete)
+	s.log.Debug("Running interactive mode (decision from startup)")
 
 	// Run openshift-install create install-config (interactive)
 	installBin := util.GetSharedBinaryPath(s.versionArch, "openshift-install")

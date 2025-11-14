@@ -8,17 +8,18 @@ import (
 )
 
 type Config struct {
-	ReleaseImage    string `yaml:"releaseImage"`
-	ClusterName     string `yaml:"-"` // Not loaded from config file - must be provided via CLI flag
-	AwsRegion       string `yaml:"awsRegion"`
-	BaseDomain      string `yaml:"baseDomain"`
-	SSHKeyPath      string `yaml:"sshKeyPath,omitempty"`
-	AwsProfile      string `yaml:"awsProfile"`
-	PullSecretPath  string `yaml:"pullSecretPath"`
-	PrivateBucket   bool   `yaml:"privateBucket"`
-	StartFromStep   int    `yaml:"-"` // Runtime flag only - not loaded from config file
-	ConfirmEachStep bool   `yaml:"-"` // Runtime flag only - not loaded from config file
-	InstanceType    string `yaml:"instanceType"`
+	ReleaseImage      string `yaml:"releaseImage"`
+	ClusterName       string `yaml:"-"` // Not loaded from config file - must be provided via CLI flag
+	AwsRegion         string `yaml:"awsRegion"`
+	BaseDomain        string `yaml:"baseDomain"`
+	SSHKeyPath        string `yaml:"sshKeyPath,omitempty"`
+	AwsProfile        string `yaml:"awsProfile"`
+	PullSecretPath    string `yaml:"pullSecretPath"`
+	PrivateBucket     bool   `yaml:"privateBucket"`
+	StartFromStep     int    `yaml:"-"` // Runtime flag only - not loaded from config file
+	ConfirmEachStep   bool   `yaml:"-"` // Runtime flag only - not loaded from config file
+	UseInteractiveMode bool   `yaml:"-"` // Runtime decision - whether to run Step 4 interactively
+	InstanceType      string `yaml:"instanceType"`
 }
 
 // LoadFromFile loads configuration from a YAML file
