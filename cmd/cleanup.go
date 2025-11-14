@@ -159,12 +159,16 @@ func runCleanup(cmd *cobra.Command, args []string) {
 					}
 				}
 			} else {
-				log.Info(fmt.Sprintf("No state file found at %s, skipping openshift-install destroy", stateFile))
+				log.Info(fmt.Sprintf("No state file found at %s", stateFile))
+				log.Info("⚠ Cannot destroy infrastructure without state file")
+				log.Info("If infrastructure still exists, you must manually delete it via AWS Console")
+				log.Info("Continuing with IAM roles and S3 bucket cleanup...")
 			}
 		}
 	} else {
-		log.Info("No --release-image provided, skipping openshift-install destroy")
-		log.Info("Only IAM roles and S3 bucket will be cleaned up")
+		log.Info("No release image available - cannot destroy infrastructure")
+		log.Info("(Infrastructure must be manually destroyed if still present)")
+		log.Info("Continuing with IAM roles and S3 bucket cleanup...")
 	}
 
 	// Step 2: Run ccoctl aws delete to clean up IAM roles and S3 bucket
