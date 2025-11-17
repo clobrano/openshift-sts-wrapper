@@ -243,3 +243,34 @@ func ReadInstallMetadata(clusterDir string) (*InstallMetadata, error) {
 
 	return &metadata, nil
 }
+
+// ValidateInstallConfigCompatibility validates that an install-config.yaml is valid
+// and contains the required fields
+func ValidateInstallConfigCompatibility(installConfigPath string) error {
+	// Validate that the file exists and is readable
+	if !FileExists(installConfigPath) {
+		return fmt.Errorf("install-config.yaml not found at %s", installConfigPath)
+	}
+
+	// Read and parse the install-config.yaml
+	config, err := ReadInstallConfig(installConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to read install-config.yaml: %w", err)
+	}
+
+	// Validate required fields are present
+	if config.Metadata.Name == "" {
+		return fmt.Errorf("install-config.yaml is missing required field: metadata.name")
+	}
+
+	if config.Platform.AWS.Region == "" {
+		return fmt.Errorf("install-config.yaml is missing required field: platform.aws.region")
+	}
+
+	// Note: We don't validate version compatibility because OpenShift install-config.yaml
+	// format is generally compatible across versions. The openshift-install binary will
+	// perform its own validation when it processes the file.
+	// We just ensure the file is parseable and has the minimum required fields.
+
+	return nil
+}

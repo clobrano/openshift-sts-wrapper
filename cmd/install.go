@@ -15,14 +15,15 @@ import (
 )
 
 var (
-	releaseImage    string
-	clusterName     string
-	awsProfile      string
-	pullSecretPath  string
-	privateBucket   bool
-	startFromStep   int
-	confirmEachStep bool
-	instanceType    string
+	releaseImage       string
+	clusterName        string
+	awsProfile         string
+	pullSecretPath     string
+	privateBucket      bool
+	startFromStep      int
+	confirmEachStep    bool
+	instanceType       string
+	fromInstallConfig  string
 )
 
 var installCmd = &cobra.Command{
@@ -36,13 +37,14 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 
 	installCmd.Flags().StringVar(&releaseImage, "release-image", "", "OpenShift release image URL (required)")
-	installCmd.Flags().StringVar(&clusterName, "cluster-name", "", "Cluster name (required)")
+	installCmd.Flags().StringVar(&clusterName, "cluster-name", "", "Cluster name (required unless using --from-install-config)")
 	installCmd.Flags().StringVar(&awsProfile, "aws-profile", "", "AWS profile name (default: default)")
 	installCmd.Flags().StringVar(&pullSecretPath, "pull-secret", "", "Path to pull secret file")
 	installCmd.Flags().BoolVar(&privateBucket, "private-bucket", false, "Use private S3 bucket with CloudFront")
 	installCmd.Flags().IntVar(&startFromStep, "start-from-step", 0, "Start from specific step number")
 	installCmd.Flags().BoolVar(&confirmEachStep, "confirm-each-step", false, "Prompt for confirmation before executing each step")
 	installCmd.Flags().StringVar(&instanceType, "instance-type", "m5.4xlarge", "AWS instance type for controlPlane and compute pools")
+	installCmd.Flags().StringVar(&fromInstallConfig, "from-install-config", "", "Path to existing install-config.yaml (mutually exclusive with --cluster-name)")
 }
 
 func runInstall(cmd *cobra.Command, args []string) {
@@ -62,6 +64,37 @@ func runInstall(cmd *cobra.Command, args []string) {
 	if err := config.ValidateConfig(cfg); err != nil {
 		log.Error(fmt.Sprintf("Configuration error: %v", err))
 		os.Exit(1)
+	}
+
+	// Process --from-install-config if provided
+	if cfg.FromInstallConfig != "" {
+		log.Info(fmt.Sprintf("Processing install-config.yaml from: %s", cfg.FromInstallConfig))
+
+		// Validate the file
+		if err := util.ValidateInstallConfigCompatibility(cfg.FromInstallConfig); err != nil {
+			log.Error(fmt.Sprintf("Install-config validation failed: %v", err))
+			os.Exit(1)
+		}
+
+		// Extract cluster name and region from the install-config.yaml
+		clusterName, region, err := util.ExtractClusterNameAndRegion(cfg.FromInstallConfig)
+		if err != nil {
+			log.Error(fmt.Sprintf("Failed to extract cluster info from install-config.yaml: %v", err))
+			os.Exit(1)
+		}
+
+		// Check if we're overriding a pre-configured region
+		if cfg.AwsRegion != "" && cfg.AwsRegion != region {
+			log.Info(fmt.Sprintf("⚠  Overriding configured AWS region '%s' with region from install-config.yaml: %s", cfg.AwsRegion, region))
+		}
+
+		// Set the extracted values in config
+		cfg.ClusterName = clusterName
+		cfg.AwsRegion = region
+
+		log.Info(fmt.Sprintf("✓ Extracted cluster name: %s", clusterName))
+		log.Info(fmt.Sprintf("✓ Extracted AWS region: %s", region))
+		log.Info("")
 	}
 
 	// Validate AWS credentials
@@ -97,9 +130,36 @@ func runInstall(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	// Copy install-config.yaml if --from-install-config was provided
+	if cfg.FromInstallConfig != "" {
+		// Extract version/arch from release image
+		versionArch, err := util.ExtractVersionArch(cfg.ReleaseImage)
+		if err != nil {
+			log.Error(fmt.Sprintf("Failed to extract version from release image: %v", err))
+			os.Exit(1)
+		}
+
+		// Ensure the cluster directory exists
+		if err := util.EnsureDir(clusterDir); err != nil {
+			log.Error(fmt.Sprintf("Failed to create cluster directory: %v", err))
+			os.Exit(1)
+		}
+
+		// Copy the file to the expected location
+		destPath := util.GetInstallConfigPath(versionArch, cfg.ClusterName)
+		if err := util.CopyFile(cfg.FromInstallConfig, destPath); err != nil {
+			log.Error(fmt.Sprintf("Failed to copy install-config.yaml: %v", err))
+			os.Exit(1)
+		}
+
+		log.Info(fmt.Sprintf("✓ Copied install-config.yaml to: %s", destPath))
+		log.Info("")
+	}
+
 	// Check configuration and get user's decision on interactive mode
 	// Only do this if we'll be executing Step 4 (not resuming from a later step)
-	if cfg.StartFromStep <= 4 {
+	// Skip this if using --from-install-config (we already have the install-config.yaml)
+	if cfg.StartFromStep <= 4 && cfg.FromInstallConfig == "" {
 		complete, missing := cfg.HasCompleteInstallConfigData()
 
 		if complete {
@@ -293,14 +353,15 @@ func loadConfig(log *logger.Logger) *config.Config {
 
 	// 3. Merge flags
 	flagCfg := &config.Config{
-		ReleaseImage:    releaseImage,
-		ClusterName:     clusterName,
-		AwsProfile:      awsProfile,
-		PullSecretPath:  pullSecretPath,
-		PrivateBucket:   privateBucket,
-		StartFromStep:   startFromStep,
-		ConfirmEachStep: confirmEachStep,
-		InstanceType:    instanceType,
+		ReleaseImage:      releaseImage,
+		ClusterName:       clusterName,
+		AwsProfile:        awsProfile,
+		PullSecretPath:    pullSecretPath,
+		PrivateBucket:     privateBucket,
+		StartFromStep:     startFromStep,
+		ConfirmEachStep:   confirmEachStep,
+		InstanceType:      instanceType,
+		FromInstallConfig: fromInstallConfig,
 	}
 	cfg.Merge(flagCfg)
 

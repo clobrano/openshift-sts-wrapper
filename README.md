@@ -45,7 +45,7 @@ If credentials cannot be read from the profile, the tool will proceed without se
 
 ### Configuration Notes
 
-**Cluster Name Requirement**: The `--cluster-name` flag is **required** for both `install` and `cleanup` commands. It must be provided via the CLI flag and cannot be loaded from configuration files or environment variables. This ensures clear cluster identification and prevents configuration conflicts.
+**Cluster Name Requirement**: The `--cluster-name` flag is **required** for both `install` and `cleanup` commands, unless you use `--from-install-config` for installation. When using `--from-install-config`, the cluster name is automatically extracted from the install-config.yaml file. The `--cluster-name` flag cannot be loaded from configuration files or environment variables to ensure clear cluster identification and prevent configuration conflicts.
 
 **Step 4 (Create install-config.yaml)**: Runs interactively using `openshift-install create install-config`, which will prompt you for:
 - SSH public key
@@ -65,7 +65,6 @@ If credentials cannot be read from the profile, the tool will proceed without se
 openshift-sts-wrapper install \
   --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64 \
   --cluster-name=my-cluster \
-  --region=us-east-2 \
   --pull-secret=./pull-secret.json \
   --aws-profile=default
 ```
@@ -76,11 +75,30 @@ openshift-sts-wrapper install \
 openshift-sts-wrapper install \
   --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64 \
   --cluster-name=my-cluster \
-  --region=us-east-2 \
   --pull-secret=./pull-secret.json \
   --aws-profile=default \
   --private-bucket
 ```
+
+### Using Your Own install-config.yaml
+
+If you already have a customized install-config.yaml, you can use it directly:
+
+```bash
+openshift-sts-wrapper install \
+  --release-image=quay.io/openshift-release-dev/ocp-release:4.12.0-x86_64 \
+  --from-install-config=./my-custom-install-config.yaml \
+  --pull-secret=./pull-secret.json \
+  --aws-profile=default
+```
+
+**Important:**
+- `--from-install-config` is **mutually exclusive** with `--cluster-name`
+- Cluster name and AWS region are automatically extracted from the install-config.yaml
+- If `awsRegion` is configured via config file or environment variable, it will be **overridden** with the region from install-config.yaml (you'll be notified)
+- The install-config.yaml is used **exactly as-is** (no modifications except adding `credentialsMode: Manual` in Step 5)
+- The file is validated for compatibility with the release image
+- Step 4 (create install-config.yaml) is automatically skipped
 
 ### Using a Configuration File
 

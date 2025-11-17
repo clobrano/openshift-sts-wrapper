@@ -8,18 +8,19 @@ import (
 )
 
 type Config struct {
-	ReleaseImage      string `yaml:"releaseImage"`
-	ClusterName       string `yaml:"-"` // Not loaded from config file - must be provided via CLI flag
-	AwsRegion         string `yaml:"awsRegion"`
-	BaseDomain        string `yaml:"baseDomain"`
-	SSHKeyPath        string `yaml:"sshKeyPath,omitempty"`
-	AwsProfile        string `yaml:"awsProfile"`
-	PullSecretPath    string `yaml:"pullSecretPath"`
-	PrivateBucket     bool   `yaml:"privateBucket"`
-	StartFromStep     int    `yaml:"-"` // Runtime flag only - not loaded from config file
-	ConfirmEachStep   bool   `yaml:"-"` // Runtime flag only - not loaded from config file
+	ReleaseImage       string `yaml:"releaseImage"`
+	ClusterName        string `yaml:"-"` // Not loaded from config file - must be provided via CLI flag
+	AwsRegion          string `yaml:"awsRegion"`
+	BaseDomain         string `yaml:"baseDomain"`
+	SSHKeyPath         string `yaml:"sshKeyPath,omitempty"`
+	AwsProfile         string `yaml:"awsProfile"`
+	PullSecretPath     string `yaml:"pullSecretPath"`
+	PrivateBucket      bool   `yaml:"privateBucket"`
+	StartFromStep      int    `yaml:"-"` // Runtime flag only - not loaded from config file
+	ConfirmEachStep    bool   `yaml:"-"` // Runtime flag only - not loaded from config file
 	UseInteractiveMode bool   `yaml:"-"` // Runtime decision - whether to run Step 4 interactively
-	InstanceType      string `yaml:"instanceType"`
+	InstanceType       string `yaml:"instanceType"`
+	FromInstallConfig  string `yaml:"-"` // Runtime flag only - path to existing install-config.yaml
 }
 
 // LoadFromFile loads configuration from a YAML file
@@ -90,6 +91,9 @@ func (c *Config) Merge(other *Config) {
 	if other.InstanceType != "" {
 		c.InstanceType = other.InstanceType
 	}
+	if other.FromInstallConfig != "" {
+		c.FromInstallConfig = other.FromInstallConfig
+	}
 }
 
 // ValidateConfig validates that required fields are set
@@ -97,10 +101,19 @@ func ValidateConfig(cfg *Config) error {
 	if cfg.ReleaseImage == "" {
 		return fmt.Errorf("release image is required")
 	}
-	if cfg.ClusterName == "" {
-		return fmt.Errorf("cluster name is required (use --cluster-name flag)")
+
+	// Validate mutual exclusivity of --cluster-name and --from-install-config
+	if cfg.ClusterName != "" && cfg.FromInstallConfig != "" {
+		return fmt.Errorf("--cluster-name and --from-install-config are mutually exclusive. When using --from-install-config, the cluster name is extracted from the install-config.yaml file")
 	}
+
+	// Either cluster name OR from-install-config must be provided
+	if cfg.ClusterName == "" && cfg.FromInstallConfig == "" {
+		return fmt.Errorf("cluster name is required (use --cluster-name flag or --from-install-config to provide an existing install-config.yaml)")
+	}
+
 	// AwsRegion is optional - can be read from install-config.yaml
+	// Note: When using --from-install-config, any pre-configured awsRegion will be overridden
 	return nil
 }
 

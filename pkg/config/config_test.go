@@ -129,6 +129,47 @@ func TestValidateConfig(t *testing.T) {
 			},
 			shouldError: false,
 		},
+		{
+			name: "mutual exclusivity - both cluster name and from-install-config",
+			config: Config{
+				ReleaseImage:      "quay.io/test:4.12.0-x86_64",
+				ClusterName:       "test-cluster",
+				FromInstallConfig: "/path/to/install-config.yaml",
+			},
+			shouldError: true,
+		},
+		{
+			name: "valid with from-install-config (no cluster name)",
+			config: Config{
+				ReleaseImage:      "quay.io/test:4.12.0-x86_64",
+				FromInstallConfig: "/path/to/install-config.yaml",
+			},
+			shouldError: false,
+		},
+		{
+			name: "missing both cluster name and from-install-config",
+			config: Config{
+				ReleaseImage: "quay.io/test:4.12.0-x86_64",
+			},
+			shouldError: true,
+		},
+		{
+			name: "awsRegion set with from-install-config is valid (will be overridden)",
+			config: Config{
+				ReleaseImage:      "quay.io/test:4.12.0-x86_64",
+				FromInstallConfig: "/path/to/install-config.yaml",
+				AwsRegion:         "us-east-1",
+			},
+			shouldError: false,
+		},
+		{
+			name: "awsRegion not set with from-install-config is valid",
+			config: Config{
+				ReleaseImage:      "quay.io/test:4.12.0-x86_64",
+				FromInstallConfig: "/path/to/install-config.yaml",
+			},
+			shouldError: false,
+		},
 	}
 
 	for _, tt := range tests {
