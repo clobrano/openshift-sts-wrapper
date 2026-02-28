@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -122,53 +123,119 @@ func runCleanup(cmd *cobra.Command, args []string) {
 
 	executor := &util.RealExecutor{}
 
-	// Step 1: Run openshift-install destroy if we have the release image
+	// Step 1: Run openshift-install destroy if we have the binary available.
+	// Prefer the binary from the release image version-arch; fall back to scanning
+	// artifacts/shared/*/bin/openshift-install (same pattern used for ccoctl below).
+	installBin := ""
 	if cleanupReleaseImage != "" {
 		versionArch, err := util.ExtractVersionArch(cleanupReleaseImage)
 		if err != nil {
 			log.Error(fmt.Sprintf("Failed to extract version from release image: %v", err))
 		} else {
-			stateFile := util.GetClusterPath(cleanupClusterName, ".openshift_install_state.json")
-			installBin := util.GetSharedBinaryPath(versionArch, "openshift-install")
-
-			// Check if state file exists
-			if util.FileExists(stateFile) {
-				log.StartStep("Destroying OpenShift infrastructure")
-
-				destroyArgs := []string{"destroy", "cluster", "--dir", clusterDir, "--log-level=debug"}
-
-				// Get AWS credentials from profile and pass them as environment variables
-				awsEnv, err := util.GetAWSEnvVars(cfg.AwsProfile)
-				if err != nil {
-					log.Debug(fmt.Sprintf("Could not read AWS credentials: %v", err))
-					log.Debug("Proceeding without explicit AWS credential injection")
-					if err := executor.ExecuteInteractive(installBin, destroyArgs...); err != nil {
-						log.FailStep("Destroy infrastructure")
-						log.Error(fmt.Sprintf("Failed to destroy infrastructure: %v", err))
-						log.Info("Continuing with ccoctl cleanup...")
-					} else {
-						log.CompleteStep("Destroy infrastructure")
-					}
-				} else {
-					if err := executor.ExecuteInteractiveWithEnv(installBin, awsEnv, destroyArgs...); err != nil {
-						log.FailStep("Destroy infrastructure")
-						log.Error(fmt.Sprintf("Failed to destroy infrastructure: %v", err))
-						log.Info("Continuing with ccoctl cleanup...")
-					} else {
-						log.CompleteStep("Destroy infrastructure")
-					}
-				}
-			} else {
-				log.Info(fmt.Sprintf("No state file found at %s", stateFile))
-				log.Info("⚠ Cannot destroy infrastructure without state file")
-				log.Info("If infrastructure still exists, you must manually delete it via AWS Console")
-				log.Info("Continuing with IAM roles and S3 bucket cleanup...")
+			candidate := util.GetSharedBinaryPath(versionArch, "openshift-install")
+			if util.FileExists(candidate) {
+				installBin = candidate
 			}
 		}
-	} else {
-		log.Info("No release image available - cannot destroy infrastructure")
-		log.Info("(Infrastructure must be manually destroyed if still present)")
-		log.Info("Continuing with IAM roles and S3 bucket cleanup...")
+	}
+
+	// Fallback: scan artifacts/shared/*/bin/openshift-install and collect all candidates
+	var installBinCandidates []string
+	if installBin == "" {
+		sharedDir := "artifacts/shared"
+		if util.DirExists(sharedDir) {
+			entries, err := os.ReadDir(sharedDir)
+			if err == nil {
+				for _, entry := range entries {
+					if entry.IsDir() {
+						candidatePath := util.GetSharedBinaryPath(entry.Name(), "openshift-install")
+						if util.FileExists(candidatePath) {
+							installBinCandidates = append(installBinCandidates, candidatePath)
+						}
+					}
+				}
+			}
+		}
+
+		if len(installBinCandidates) > 0 {
+			fmt.Println("\nThe release image is needed to destroy the cluster infrastructure, but it was not")
+			fmt.Println("found in install-metadata.json. The following binaries are available as alternatives:")
+			for i, c := range installBinCandidates {
+				fmt.Printf("  [%d] %s\n", i+1, c)
+			}
+			fmt.Println("  [s] Skip - clean up IAM/S3 only (infrastructure must be deleted manually)")
+			fmt.Println("  [q] Quit - re-run with the exact image used during installation:")
+			fmt.Println("      openshift-sts-wrapper cleanup --cluster-name=<name> --release-image=quay.io/openshift-release-dev/ocp-release:<version>-<arch>")
+			fmt.Print("> ")
+			choice, _ := reader.ReadString('\n')
+			choice = strings.TrimSpace(strings.ToLower(choice))
+			switch choice {
+			case "q":
+				log.Info("Cleanup cancelled.")
+				return
+			case "s":
+				log.Info("Skipping infrastructure destruction. Continuing with IAM/S3 cleanup...")
+			default:
+				n, err := strconv.Atoi(choice)
+				if err != nil || n < 1 || n > len(installBinCandidates) {
+					log.Info(fmt.Sprintf("Invalid choice '%s'. Skipping infrastructure destruction.", choice))
+				} else {
+					installBin = installBinCandidates[n-1]
+					log.Debug(fmt.Sprintf("Using openshift-install: %s", installBin))
+				}
+			}
+		} else {
+			fmt.Println("\nRelease image not found and no openshift-install binary found in artifacts/shared/.")
+			fmt.Println("  [s] Skip infrastructure destruction (continue with IAM/S3 cleanup only)")
+			fmt.Println("  [q] Quit - to retry with the correct image, re-run with:")
+			fmt.Println("      openshift-sts-wrapper cleanup --cluster-name=<name> --release-image=quay.io/openshift-release-dev/ocp-release:<version>-<arch>")
+			fmt.Print("> ")
+			choice, _ := reader.ReadString('\n')
+			choice = strings.TrimSpace(strings.ToLower(choice))
+			if choice == "q" {
+				log.Info("Cleanup cancelled.")
+				return
+			}
+			log.Info("Skipping infrastructure destruction. Continuing with IAM/S3 cleanup...")
+		}
+	}
+
+	if installBin != "" {
+		stateFile := util.GetClusterPath(cleanupClusterName, ".openshift_install_state.json")
+
+		// Check if state file exists
+		if util.FileExists(stateFile) {
+			log.StartStep("Destroying OpenShift infrastructure")
+
+			destroyArgs := []string{"destroy", "cluster", "--dir", clusterDir, "--log-level=debug"}
+
+			// Get AWS credentials from profile and pass them as environment variables
+			awsEnv, err := util.GetAWSEnvVars(cfg.AwsProfile)
+			if err != nil {
+				log.Debug(fmt.Sprintf("Could not read AWS credentials: %v", err))
+				log.Debug("Proceeding without explicit AWS credential injection")
+				if err := executor.ExecuteInteractive(installBin, destroyArgs...); err != nil {
+					log.FailStep("Destroy infrastructure")
+					log.Error(fmt.Sprintf("Failed to destroy infrastructure: %v", err))
+					log.Info("Continuing with ccoctl cleanup...")
+				} else {
+					log.CompleteStep("Destroy infrastructure")
+				}
+			} else {
+				if err := executor.ExecuteInteractiveWithEnv(installBin, awsEnv, destroyArgs...); err != nil {
+					log.FailStep("Destroy infrastructure")
+					log.Error(fmt.Sprintf("Failed to destroy infrastructure: %v", err))
+					log.Info("Continuing with ccoctl cleanup...")
+				} else {
+					log.CompleteStep("Destroy infrastructure")
+				}
+			}
+		} else {
+			log.Info(fmt.Sprintf("No state file found at %s", stateFile))
+			log.Info("⚠ Cannot destroy infrastructure without state file")
+			log.Info("If infrastructure still exists, you must manually delete it via AWS Console")
+			log.Info("Continuing with IAM roles and S3 bucket cleanup...")
+		}
 	}
 
 	// Step 2: Run ccoctl aws delete to clean up IAM roles and S3 bucket
