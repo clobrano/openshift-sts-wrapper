@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -138,7 +139,8 @@ func runCleanup(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Fallback: scan artifacts/shared/*/bin/openshift-install
+	// Fallback: scan artifacts/shared/*/bin/openshift-install and collect all candidates
+	var installBinCandidates []string
 	if installBin == "" {
 		sharedDir := "artifacts/shared"
 		if util.DirExists(sharedDir) {
@@ -148,13 +150,52 @@ func runCleanup(cmd *cobra.Command, args []string) {
 					if entry.IsDir() {
 						candidatePath := util.GetSharedBinaryPath(entry.Name(), "openshift-install")
 						if util.FileExists(candidatePath) {
-							installBin = candidatePath
-							log.Debug(fmt.Sprintf("Found openshift-install in shared artifacts: %s", installBin))
-							break
+							installBinCandidates = append(installBinCandidates, candidatePath)
 						}
 					}
 				}
 			}
+		}
+
+		if len(installBinCandidates) > 0 {
+			fmt.Println("\nRelease image not found. Available openshift-install binaries in shared artifacts:")
+			for i, c := range installBinCandidates {
+				fmt.Printf("  [%d] %s\n", i+1, c)
+			}
+			fmt.Println("  [s] Skip infrastructure destruction (continue with IAM/S3 cleanup only)")
+			fmt.Println("  [q] Quit - to use a specific image, re-run with:")
+			fmt.Println("      openshift-sts-wrapper cleanup --cluster-name=<name> --release-image=quay.io/openshift-release-dev/ocp-release:<version>-<arch>")
+			fmt.Print("> ")
+			choice, _ := reader.ReadString('\n')
+			choice = strings.TrimSpace(strings.ToLower(choice))
+			switch choice {
+			case "q":
+				log.Info("Cleanup cancelled.")
+				return
+			case "s":
+				log.Info("Skipping infrastructure destruction. Continuing with IAM/S3 cleanup...")
+			default:
+				n, err := strconv.Atoi(choice)
+				if err != nil || n < 1 || n > len(installBinCandidates) {
+					log.Info(fmt.Sprintf("Invalid choice '%s'. Skipping infrastructure destruction.", choice))
+				} else {
+					installBin = installBinCandidates[n-1]
+					log.Debug(fmt.Sprintf("Using openshift-install: %s", installBin))
+				}
+			}
+		} else {
+			fmt.Println("\nRelease image not found and no openshift-install binary found in artifacts/shared/.")
+			fmt.Println("  [s] Skip infrastructure destruction (continue with IAM/S3 cleanup only)")
+			fmt.Println("  [q] Quit - to retry with the correct image, re-run with:")
+			fmt.Println("      openshift-sts-wrapper cleanup --cluster-name=<name> --release-image=quay.io/openshift-release-dev/ocp-release:<version>-<arch>")
+			fmt.Print("> ")
+			choice, _ := reader.ReadString('\n')
+			choice = strings.TrimSpace(strings.ToLower(choice))
+			if choice == "q" {
+				log.Info("Cleanup cancelled.")
+				return
+			}
+			log.Info("Skipping infrastructure destruction. Continuing with IAM/S3 cleanup...")
 		}
 	}
 
@@ -194,13 +235,6 @@ func runCleanup(cmd *cobra.Command, args []string) {
 			log.Info("If infrastructure still exists, you must manually delete it via AWS Console")
 			log.Info("Continuing with IAM roles and S3 bucket cleanup...")
 		}
-	} else {
-		log.Info("No openshift-install binary found - cannot destroy infrastructure automatically")
-		log.Info("This happens when install-metadata.json is missing and no binary exists in artifacts/shared/")
-		log.Info("To enable automatic infrastructure cleanup, re-run with the release image used during installation:")
-		log.Info("  openshift-sts-wrapper cleanup --cluster-name=<name> --release-image=quay.io/openshift-release-dev/ocp-release:<version>-<arch>")
-		log.Info("The release image can be found in the original install command or cluster documentation.")
-		log.Info("Continuing with IAM roles and S3 bucket cleanup...")
 	}
 
 	// Step 2: Run ccoctl aws delete to clean up IAM roles and S3 bucket
