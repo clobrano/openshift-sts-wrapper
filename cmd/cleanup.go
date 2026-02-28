@@ -158,12 +158,13 @@ func runCleanup(cmd *cobra.Command, args []string) {
 		}
 
 		if len(installBinCandidates) > 0 {
-			fmt.Println("\nRelease image not found. Available openshift-install binaries in shared artifacts:")
+			fmt.Println("\nThe release image is needed to destroy the cluster infrastructure, but it was not")
+			fmt.Println("found in install-metadata.json. The following binaries are available as alternatives:")
 			for i, c := range installBinCandidates {
 				fmt.Printf("  [%d] %s\n", i+1, c)
 			}
-			fmt.Println("  [s] Skip infrastructure destruction (continue with IAM/S3 cleanup only)")
-			fmt.Println("  [q] Quit - to use a specific image, re-run with:")
+			fmt.Println("  [s] Skip - clean up IAM/S3 only (infrastructure must be deleted manually)")
+			fmt.Println("  [q] Quit - re-run with the exact image used during installation:")
 			fmt.Println("      openshift-sts-wrapper cleanup --cluster-name=<name> --release-image=quay.io/openshift-release-dev/ocp-release:<version>-<arch>")
 			fmt.Print("> ")
 			choice, _ := reader.ReadString('\n')
